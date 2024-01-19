@@ -35,6 +35,9 @@ import cientistavuador.physicsexperiment.ubo.UBOBindingPoints;
 import cientistavuador.physicsexperiment.util.ALSourceUtil;
 import cientistavuador.physicsexperiment.util.Aab;
 import cientistavuador.physicsexperiment.util.Cursors;
+import com.jme3.bullet.objects.PhysicsRigidBody;
+import com.jme3.system.NativeLibraryLoader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -44,6 +47,7 @@ import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.logging.Level;
 import org.joml.Vector3f;
 import org.lwjgl.PointerBuffer;
 import static org.lwjgl.glfw.GLFW.*;
@@ -77,7 +81,9 @@ public class Main {
 
     static {
         org.lwjgl.system.Configuration.LIBRARY_PATH.set("natives");
-
+        PhysicsRigidBody.logger2.setLevel(Level.WARNING);
+        NativeLibraryLoader.loadLibbulletjme(true, new File("natives"), "Release", "Sp");
+        
         if (!glfwInit()) {
             throw new IllegalStateException("Could not initialize GLFW!");
         }

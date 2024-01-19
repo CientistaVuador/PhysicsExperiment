@@ -67,13 +67,7 @@ public class GeometriesLoader {
                 System.out.println("Loading geometry '" + names[index]);
             }
             futureDatas.add(CompletableFuture.supplyAsync(() -> {
-                MeshData[] e = MeshResources.load(names[index]);
-                if (DEBUG_OUTPUT) {
-                    for (MeshData m : e) {
-                        System.out.println("Finished loading geometry '" + m.getName() + ": " + (m.getVertices().length / MeshData.SIZE) + " vertices, " + m.getIndices().length + " indices");
-                    }
-                }
-                return e;
+                return MeshResources.load(names[index]);
             }));
         }
 
@@ -90,15 +84,12 @@ public class GeometriesLoader {
 
         for (int i = 0; i < datas.size(); i++) {
             MeshData data = datas.get(i);
-            if (DEBUG_OUTPUT) {
-                System.out.println("Sending geometry '" + data.getName() + "', index " + i + " to the gpu.");
-            }
             int vao = data.getVAO();
             if (DEBUG_OUTPUT) {
-                System.out.println("Finished sending geometry '" + data.getName() + "', index " + i + " to the gpu with object id " + vao + ".");
+                System.out.println("Finished loading geometry '" + data.getName() + "', object id " + vao + ", "+(data.getVertices().length / MeshData.SIZE) + " vertices, " + data.getIndices().length + " indices");
             }
         }
-
+        
         if (DEBUG_OUTPUT) {
             System.out.println("Finished loading geometries.");
         }

@@ -26,11 +26,9 @@
  */
 package cientistavuador.physicsexperiment.natives;
 
-import java.io.BufferedInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -57,6 +55,15 @@ public class NativesExtractor {
             extract("natives_macos.zip", "macos");
         } catch (IOException ex) {
             System.out.println("Failed to extract macos natives:");
+            ex.printStackTrace(System.out);
+        }
+    }
+    
+    public static void extractBulletNatives() {
+        try {
+            extract("natives_bullet.zip", "bulletNatives");
+        } catch (IOException ex) {
+            System.out.println("Failed to extract bullet natives:");
             ex.printStackTrace(System.out);
         }
     }

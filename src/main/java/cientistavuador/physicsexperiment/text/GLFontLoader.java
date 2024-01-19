@@ -56,11 +56,7 @@ public class GLFontLoader {
                 System.out.println("Loading font '" + font + "'");
             }
             futureResult.add(CompletableFuture.supplyAsync(() -> {
-                Font f = FontResources.load(font);
-                if (DEBUG_OUTPUT) {
-                    System.out.println("Finished loading font '" + font + "' with " + f.getCharactersLength() + " characters and a " + f.getAtlasImage().getWidth() + "x" + f.getAtlasImage().getHeight() + " atlas.");
-                }
-                return f;
+                return FontResources.load(font);
             }));
         }
 
@@ -83,9 +79,6 @@ public class GLFontLoader {
 
         index = 0;
         for (Font font : result) {
-            if (DEBUG_OUTPUT) {
-                System.out.println("Generating font atlas bounds of '" + font.getName() + "'");
-            }
             final Font finalFont = font;
             final int finalIndex = index;
             futureFontAtlasBoundsDeque.add(CompletableFuture.supplyAsync(() -> {
@@ -108,10 +101,7 @@ public class GLFontLoader {
                     data[dataIndex + 6] = character.getAtlasBoundsBottom() / atlasHeight;
                     data[dataIndex + 7] = character.getAtlasBoundsTop() / atlasHeight;
                 }
-
-                if (DEBUG_OUTPUT) {
-                    System.out.println("Finished generating font atlas bounds of '" + font.getName() + "'");
-                }
+                
                 return data;
             }));
             index++;
@@ -121,9 +111,6 @@ public class GLFontLoader {
 
         index = 0;
         for (Font font : result) {
-            if (DEBUG_OUTPUT) {
-                System.out.println("Uploading atlas image of '" + font.getName() + "' to the GPU.");
-            }
             int texture = glGenTextures();
             fontAtlasTextures[index] = texture;
             index++;
@@ -150,10 +137,6 @@ public class GLFontLoader {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
             glBindTexture(GL_TEXTURE_2D, 0);
-
-            if (DEBUG_OUTPUT) {
-                System.out.println("Finished uploading atlas image of '" + font.getName() + "' to the GPU.");
-            }
         }
 
         int[] fontAtlasBoundsTextures = new int[result.length];
@@ -179,10 +162,6 @@ public class GLFontLoader {
                     f.getAtlasImage().free();
                 }
                 throw new RuntimeException(ex);
-            }
-
-            if (DEBUG_OUTPUT) {
-                System.out.println("Uploading atlas bounds image of '" + font.getName() + "' to the GPU. ("+size+"x"+size+")");
             }
             
             int texture = glGenTextures();
@@ -213,10 +192,6 @@ public class GLFontLoader {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
             
             glBindTexture(GL_TEXTURE_2D, 0);
-
-            if (DEBUG_OUTPUT) {
-                System.out.println("Finished uploading atlas bounds image of '" + font.getName() + "' to the GPU. ("+size+"x"+size+")");
-            }
         }
         
         GLFont[] finalOutput = new GLFont[result.length];
@@ -230,7 +205,7 @@ public class GLFontLoader {
             finalOutput[i] = new GLFont(font, atlasTexture, atlasBoundsTexture);
             
             if (DEBUG_OUTPUT) {
-                System.out.println("Finished Loading GLFont "+font.getName()+", atlas "+font.getAtlasImage().getWidth()+"x"+font.getAtlasImage().getHeight()+", atlas bounds "+fontAtlasBoundsSizes[i]+"x"+fontAtlasBoundsSizes[i]+", characters "+font.getCharactersLength());
+                System.out.println("Finished loading font "+font.getName()+", atlas "+font.getAtlasImage().getWidth()+"x"+font.getAtlasImage().getHeight()+", atlas bounds "+fontAtlasBoundsSizes[i]+"x"+fontAtlasBoundsSizes[i]+", characters "+font.getCharactersLength());
             }
         }
         

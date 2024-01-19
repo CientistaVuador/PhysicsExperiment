@@ -45,10 +45,16 @@ import cientistavuador.physicsexperiment.util.bakedlighting.BakedLighting;
 import cientistavuador.physicsexperiment.util.raycast.RayResult;
 import cientistavuador.physicsexperiment.util.bakedlighting.SamplingMode;
 import cientistavuador.physicsexperiment.util.bakedlighting.Scene;
+import com.jme3.bullet.PhysicsSpace;
+import com.jme3.bullet.collision.shapes.MeshCollisionShape;
+import com.jme3.bullet.collision.shapes.SphereCollisionShape;
+import com.jme3.bullet.collision.shapes.infos.IndexedMesh;
+import com.jme3.bullet.objects.PhysicsRigidBody;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.FloatBuffer;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -58,8 +64,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL33C.*;
 import org.lwjgl.opengl.GL42C;
@@ -165,6 +173,12 @@ public class Game {
     private boolean bakeWindowOpen = false;
     private final AtomicBoolean saveLightmapProcessing = new AtomicBoolean(false);
 
+    private final PhysicsSpace physicsSpace = new PhysicsSpace(PhysicsSpace.BroadphaseType.DBVT);
+
+    private final List<PhysicsRigidBody> spheres = new ArrayList<>();
+    private final Scene.DirectionalLight sun = new Scene.DirectionalLight();
+    private final SphereCollisionShape sphereShape = new SphereCollisionShape(0.25f / 2f);
+
     private Game() {
 
     }
@@ -179,7 +193,7 @@ public class Game {
             ex.printStackTrace(System.out);
             return;
         }
-        
+
         MeshData.LightmapMesh mesh = geometry.getMesh().scheduleLightmapMesh(
                 data.pixelToWorldRatio(),
                 data.scaleX(), data.scaleY(), data.scaleZ()
@@ -188,17 +202,19 @@ public class Game {
         for (int i = 0; i < groups.length; i++) {
             groups[i] = data.lightmaps()[i].groupName();
         }
-        
+
         this.writeToTexture.prepare(geometry, mesh, data.lightmapSize(), groups);
-        
+
         for (int i = 0; i < data.lightmaps().length; i++) {
             this.writeToTexture.write(data.lightmaps()[i].data(), i);
         }
-        
+
         geometry.setLightmapMesh(mesh);
     }
-    
+
     public void start() {
+        this.physicsSpace.setMaxSubSteps(0);
+
         camera.setPosition(1f, 3f, -5f);
         camera.setUBO(CameraUBO.create(UBOBindingPoints.PLAYER_CAMERA));
 
@@ -233,9 +249,40 @@ public class Game {
 
         this.scene.setFastModeEnabled(false);
 
-        Scene.DirectionalLight sun = new Scene.DirectionalLight();
         sun.setGroupName("sun");
         this.scene.getLights().add(sun);
+
+        List<IndexedMesh> worldMeshes = new ArrayList<>();
+        for (Geometry g : this.scene.getGeometries()) {
+            MeshData mesh = g.getMesh();
+
+            int[] indices = mesh.getIndices();
+            float[] vertices = mesh.getVertices();
+
+            Vector3f vec = new Vector3f();
+
+            FloatBuffer positionBuffer = FloatBuffer.allocate(indices.length * 3);
+            for (int i = 0; i < indices.length; i += 1) {
+                int v = indices[i + 0] * MeshData.SIZE;
+
+                float x = vertices[v + MeshData.XYZ_OFFSET + 0];
+                float y = vertices[v + MeshData.XYZ_OFFSET + 1];
+                float z = vertices[v + MeshData.XYZ_OFFSET + 2];
+
+                vec.set(x, y, z);
+                g.getModel().transformProject(vec);
+
+                positionBuffer.put(vec.x()).put(vec.y()).put(vec.z());
+            }
+            positionBuffer.flip();
+
+            IndexedMesh collisionMesh = new IndexedMesh(positionBuffer);
+            worldMeshes.add(collisionMesh);
+        }
+        MeshCollisionShape world = new MeshCollisionShape(true, worldMeshes);
+        PhysicsRigidBody worldBody = new PhysicsRigidBody(world, 0f);
+        worldBody.setRestitution(0.25f);
+        this.physicsSpace.addCollisionObject(worldBody);
     }
 
     public void loop() {
@@ -339,6 +386,52 @@ public class Game {
                 glBindVertexArray(0);
             }
         }
+
+        program.setLightingEnabled(true);
+        program.setSunAmbient(this.sun.getAmbient());
+        program.setSunDirection(this.sun.getDirection());
+        for (PhysicsRigidBody e : this.spheres) {
+            program.setColor(1f, 1f, 1f, 1f);
+            Matrix4f model = new Matrix4f();
+
+            Vector3f position = new Vector3f(
+                    e.getPhysicsLocation(null).x,
+                    e.getPhysicsLocation(null).y,
+                    e.getPhysicsLocation(null).z
+            );
+
+            boolean shadow = Geometry.fastTestRay(position, this.sun.getDirectionNegated(), Float.POSITIVE_INFINITY, this.scene.getGeometries());
+
+            if (shadow) {
+                program.setSunDiffuse(0f, 0f, 0f);
+            } else {
+                program.setSunDiffuse(this.sun.getDiffuse());
+            }
+
+            model.translate(position).scale(0.25f);
+            com.jme3.math.Matrix3f rot = e.getPhysicsRotationMatrix(null);
+            Matrix3f rotation = new Matrix3f();
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    rotation.set(i, j, rot.get(j, i));
+                }
+            }
+            model.mul(new Matrix4f().set(rotation));
+
+            program.setModel(model);
+            MeshData sphere = Geometries.SPHERE;
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, Textures.RED);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, Textures.EMPTY_LIGHTMAP);
+
+            glBindVertexArray(Geometries.SPHERE.getVAO());
+            sphere.render();
+            glBindVertexArray(0);
+        }
+        program.setLightingEnabled(false);
+
         glUseProgram(0);
 
         AabRender.renderQueue(camera);
@@ -359,6 +452,8 @@ public class Game {
 
         Main.WINDOW_TITLE += " (DrawCalls: " + Main.NUMBER_OF_DRAWCALLS + ", Vertices: " + Main.NUMBER_OF_VERTICES + ")";
         Main.WINDOW_TITLE += " (x:" + (int) Math.floor(camera.getPosition().x()) + ",y:" + (int) Math.floor(camera.getPosition().y()) + ",z:" + (int) Math.ceil(camera.getPosition().z()) + ")";
+
+        this.physicsSpace.update((float) Main.TPF);
     }
 
     public void bakePopupCallback(BakePopup popup) {
@@ -484,9 +579,9 @@ public class Game {
                             for (int i = 0; i < finalList.size(); i++) {
                                 LightmapFile.LightmapData lightmap = finalList.get(i);
                                 Geometry geometry = finalGeometryList.get(i);
-                                
-                                File output = new File(directory, i+"_"+geometry.getMesh().getName()+".lightmap");
-                                
+
+                                File output = new File(directory, i + "_" + geometry.getMesh().getName() + ".lightmap");
+
                                 try {
                                     try (FileOutputStream outputStream = new FileOutputStream(output)) {
                                         LightmapFile.encode(lightmap, 0.001f, outputStream);
@@ -511,6 +606,24 @@ public class Game {
     }
 
     public void mouseCallback(long window, int button, int action, int mods) {
-
+        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+            PhysicsRigidBody physicsSphere = new PhysicsRigidBody(sphereShape, 1f);
+            physicsSphere.setPhysicsLocation(new com.jme3.math.Vector3f(
+                    (float) this.camera.getPosition().x(),
+                    (float) this.camera.getPosition().y(),
+                    (float) this.camera.getPosition().z()
+            ));
+            physicsSphere.applyCentralImpulse(new com.jme3.math.Vector3f(
+                    this.camera.getFront().x() * 2f,
+                    this.camera.getFront().y() * 2f,
+                    this.camera.getFront().z() * 2f
+            ));
+            physicsSphere.setFriction(1f);
+            physicsSphere.setRollingFriction(0.02f);
+            physicsSphere.setSpinningFriction(0.02f);
+            physicsSphere.setRestitution(1f);
+            this.physicsSpace.addCollisionObject(physicsSphere);
+            this.spheres.add(physicsSphere);
+        }
     }
 }

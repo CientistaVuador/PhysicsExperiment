@@ -273,7 +273,7 @@ public class GeometryProgram {
                 colorOutput = vec4(pow(textureColor.rgb * lightmapColor.rgb, vec3(1.0/gamma)), textureColor.a);
                 
                 if (lightingEnabled) {
-                    vec3 resultOutput = textureColor.rgb * lightmapColor.rgb;
+                    vec3 resultOutput = vec3(0.0);
                     
                     //sun
                     resultOutput += sunDiffuse * max(dot(normal, -sunDirection), 0.0) * textureColor.rgb;

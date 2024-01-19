@@ -67,6 +67,8 @@ public class MainWrapper {
         } else if (osName.contains("mac")) {
             NativesExtractor.extractMacOS();
         }
+        
+        NativesExtractor.extractBulletNatives();
     }
 
     /**

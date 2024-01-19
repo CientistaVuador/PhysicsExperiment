@@ -63,17 +63,14 @@ public class NativeImage {
     }
 
     public int getWidth() {
-        throwExceptionIfFreed();
         return width;
     }
 
     public int getHeight() {
-        throwExceptionIfFreed();
         return height;
     }
 
     public int getChannels() {
-        throwExceptionIfFreed();
         return channels;
     }
 

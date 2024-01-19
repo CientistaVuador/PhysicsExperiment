@@ -66,13 +66,10 @@ public class TexturesLoader {
         for (int i = 0; i < images.length; i++) {
             final int index = i;
             if (DEBUG_OUTPUT) {
-                System.out.println("Loading texture '" + names[index] + "' with index " + index);
+                System.out.println("Loading texture '" + names[index] + "'");
             }
             futureDatas.add(CompletableFuture.supplyAsync(() -> {
                 NativeImage e = ImageResources.load(names[index], 4);
-                if (DEBUG_OUTPUT) {
-                    System.out.println("Finished loading texture '" + names[index] + "' with index " + index + ", " + e.getWidth() + "x" + e.getHeight());
-                }
                 return e;
             }));
         }
@@ -102,9 +99,6 @@ public class TexturesLoader {
 
         glActiveTexture(GL_TEXTURE0);
         for (int i = 0; i < textures.length; i++) {
-            if (DEBUG_OUTPUT) {
-                System.out.println("Sending texture '" + names[i] + "', index " + i + " to the gpu.");
-            }
             NativeImage image = images[i];
 
             int texture = glGenTextures();
@@ -137,7 +131,7 @@ public class TexturesLoader {
 
             textures[i] = texture;
             if (DEBUG_OUTPUT) {
-                System.out.println("Finished sending texture '" + names[i] + "', index " + i + " to the gpu with object id " + texture + ".");
+                System.out.println("Finished loading texture '" + names[i] + "', object id: "+texture+", size: "+image.getWidth()+"x"+image.getHeight());
             }
         }
 

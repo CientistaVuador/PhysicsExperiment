@@ -60,6 +60,23 @@ public class ProgramCompiler {
         return s;
     }
 
+    private static String createOutputMessage(String prefix, String message) {
+        if (message.isBlank()) {
+            return prefix + " Output -> (no output)";
+        }
+        return prefix + " Output -> {\n" + message + "\n}";
+    }
+
+    private static void checkErrors(int shader, String prefix) {
+        boolean shaderFailed = glGetShaderi(shader, GL_COMPILE_STATUS) != GL_TRUE;
+        String message = createOutputMessage(prefix, glGetShaderInfoLog(shader));
+        if (!ONLY_OUTPUT_ERRORS && !shaderFailed) {
+            System.out.println(message);
+        } else if (shaderFailed) {
+            throw new RuntimeException(message);
+        }
+    }
+
     public static int compile(String vertexSource, String geometrySource, String fragmentSource, Map<String, String> replacements) {
         String shaderName = null;
         if (!ONLY_OUTPUT_ERRORS) {
@@ -76,7 +93,7 @@ public class ProgramCompiler {
                 }
             }
         }
-        
+
         if (replacements != null) {
             vertexSource = replace(vertexSource, replacements);
             fragmentSource = replace(fragmentSource, replacements);
@@ -88,12 +105,7 @@ public class ProgramCompiler {
         glShaderSource(vertexShader, vertexSource);
         glCompileShader(vertexShader);
 
-        boolean vertexShaderFailed = glGetShaderi(vertexShader, GL_COMPILE_STATUS) != GL_TRUE;
-        if (!ONLY_OUTPUT_ERRORS && !vertexShaderFailed) {
-            System.out.println("Vertex Shader Debug Output -> \n" + glGetShaderInfoLog(vertexShader) + "\n-end-");
-        } else if (vertexShaderFailed) {
-            throw new RuntimeException("Vertex Shader Compilation Failed! -> \n" + glGetShaderInfoLog(vertexShader) + "\n-end-");
-        }
+        checkErrors(vertexShader, "Vertex Shader");
 
         int geometryShader = 0;
         if (geometrySource != null) {
@@ -101,25 +113,15 @@ public class ProgramCompiler {
             glShaderSource(geometryShader, geometrySource);
             glCompileShader(geometryShader);
 
-            boolean geometryShaderFailed = glGetShaderi(geometryShader, GL_COMPILE_STATUS) != GL_TRUE;
-            if (!ONLY_OUTPUT_ERRORS && !geometryShaderFailed) {
-                System.out.println("Geometry Shader Debug Output -> \n" + glGetShaderInfoLog(geometryShader) + "\n-end-");
-            } else if (geometryShaderFailed) {
-                throw new RuntimeException("Geometry Shader Compilation Failed! -> \n" + glGetShaderInfoLog(geometryShader) + "\n-end-");
-            }
+            checkErrors(geometryShader, "Geometry Shader");
         }
 
         int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
         glShaderSource(fragmentShader, fragmentSource);
         glCompileShader(fragmentShader);
 
-        boolean fragmentShaderFailed = glGetShaderi(fragmentShader, GL_COMPILE_STATUS) != GL_TRUE;
-        if (!ONLY_OUTPUT_ERRORS && !fragmentShaderFailed) {
-            System.out.println("Fragment Shader Debug Output -> \n" + glGetShaderInfoLog(fragmentShader) + "\n-end-");
-        } else if (fragmentShaderFailed) {
-            throw new RuntimeException("Fragment Shader Compilation Failed! -> \n" + glGetShaderInfoLog(fragmentShader) + "\n-end-");
-        }
-        
+        checkErrors(fragmentShader, "Fragment Shader");
+
         int program = glCreateProgram();
 
         glAttachShader(program, vertexShader);
@@ -130,21 +132,24 @@ public class ProgramCompiler {
 
         glLinkProgram(program);
 
-        boolean programLinkFailed = glGetProgrami(program, GL_LINK_STATUS) != GL_TRUE;
-        if (!ONLY_OUTPUT_ERRORS && !programLinkFailed) {
-            System.out.println("Program Debug Output -> \n" + glGetProgramInfoLog(program) + "\n-end-");
-        } else if (programLinkFailed) {
-            throw new RuntimeException("Program Link Failed! -> \n" + glGetProgramInfoLog(program) + "\n-end-");
+        {
+            boolean programLinkFailed = glGetProgrami(program, GL_LINK_STATUS) != GL_TRUE;
+            String message = createOutputMessage("Program Link", glGetProgramInfoLog(program));
+            if (!ONLY_OUTPUT_ERRORS && !programLinkFailed) {
+                System.out.println(message);
+            } else if (programLinkFailed) {
+                throw new RuntimeException(message);
+            }
         }
-
+        
         glDeleteShader(vertexShader);
         if (geometryShader != 0) {
             glDeleteShader(geometryShader);
         }
         glDeleteShader(fragmentShader);
-        
+
         if (Main.DEBUG_ENABLED && shaderName != null && GL.getCapabilities().GL_KHR_debug) {
-            KHRDebug.glObjectLabel(KHRDebug.GL_PROGRAM, program, "Program_"+shaderName);
+            KHRDebug.glObjectLabel(KHRDebug.GL_PROGRAM, program, "Program_" + shaderName);
         }
 
         return program;
