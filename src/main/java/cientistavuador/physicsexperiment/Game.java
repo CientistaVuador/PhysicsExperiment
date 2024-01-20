@@ -67,7 +67,6 @@ import javax.swing.JFrame;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.joml.Vector4f;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL33C.*;
 import org.lwjgl.opengl.GL42C;
@@ -179,6 +178,8 @@ public class Game {
     private final Scene.DirectionalLight sun = new Scene.DirectionalLight();
     private final SphereCollisionShape sphereShape = new SphereCollisionShape(0.25f / 2f);
 
+    private final Geometry monkeyGeometry = new Geometry(Geometries.MONKEY);
+
     private Game() {
 
     }
@@ -214,7 +215,9 @@ public class Game {
 
     public void start() {
         this.physicsSpace.setMaxSubSteps(0);
-
+        
+        this.monkeyGeometry.setModel(new Matrix4f().translate(0, 7, 0));
+        
         camera.setPosition(1f, 3f, -5f);
         camera.setUBO(CameraUBO.create(UBOBindingPoints.PLAYER_CAMERA));
 
@@ -279,10 +282,39 @@ public class Game {
             IndexedMesh collisionMesh = new IndexedMesh(positionBuffer);
             worldMeshes.add(collisionMesh);
         }
+        {
+            Geometry g = this.monkeyGeometry;
+            MeshData mesh = g.getMesh();
+
+            int[] indices = mesh.getIndices();
+            float[] vertices = mesh.getVertices();
+
+            Vector3f vec = new Vector3f();
+
+            FloatBuffer positionBuffer = FloatBuffer.allocate(indices.length * 3);
+            for (int i = 0; i < indices.length; i += 1) {
+                int v = indices[i + 0] * MeshData.SIZE;
+
+                float x = vertices[v + MeshData.XYZ_OFFSET + 0];
+                float y = vertices[v + MeshData.XYZ_OFFSET + 1];
+                float z = vertices[v + MeshData.XYZ_OFFSET + 2];
+
+                vec.set(x, y, z);
+                g.getModel().transformProject(vec);
+
+                positionBuffer.put(vec.x()).put(vec.y()).put(vec.z());
+            }
+            positionBuffer.flip();
+
+            IndexedMesh collisionMesh = new IndexedMesh(positionBuffer);
+            worldMeshes.add(collisionMesh);
+        }
         MeshCollisionShape world = new MeshCollisionShape(true, worldMeshes);
+        world.setMargin(0.015f);
         PhysicsRigidBody worldBody = new PhysicsRigidBody(world, 0f);
         worldBody.setRestitution(0.25f);
         this.physicsSpace.addCollisionObject(worldBody);
+
     }
 
     public void loop() {
@@ -388,9 +420,20 @@ public class Game {
         }
 
         program.setLightingEnabled(true);
+        program.setSunDiffuse(this.sun.getDiffuse());
         program.setSunAmbient(this.sun.getAmbient());
         program.setSunDirection(this.sun.getDirection());
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, this.monkeyGeometry.getMesh().getTextureHint());
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, Textures.EMPTY_LIGHTMAP);
+        program.setModel(this.monkeyGeometry.getModel());
+        this.monkeyGeometry.getMesh().bindRenderUnbind();
+
         for (PhysicsRigidBody e : this.spheres) {
+            Geometry geo = (Geometry) e.getUserObject();
+
             program.setColor(1f, 1f, 1f, 1f);
             Matrix4f model = new Matrix4f();
 
@@ -409,6 +452,7 @@ public class Game {
             }
 
             model.translate(position).scale(0.25f);
+
             com.jme3.math.Matrix3f rot = e.getPhysicsRotationMatrix(null);
             Matrix3f rotation = new Matrix3f();
             for (int i = 0; i < 3; i++) {
@@ -417,6 +461,7 @@ public class Game {
                 }
             }
             model.mul(new Matrix4f().set(rotation));
+            geo.setModel(model);
 
             program.setModel(model);
             MeshData sphere = Geometries.SPHERE;
@@ -453,7 +498,58 @@ public class Game {
         Main.WINDOW_TITLE += " (DrawCalls: " + Main.NUMBER_OF_DRAWCALLS + ", Vertices: " + Main.NUMBER_OF_VERTICES + ")";
         Main.WINDOW_TITLE += " (x:" + (int) Math.floor(camera.getPosition().x()) + ",y:" + (int) Math.floor(camera.getPosition().y()) + ",z:" + (int) Math.ceil(camera.getPosition().z()) + ")";
 
+        if (glfwGetMouseButton(Main.WINDOW_POINTER, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+            List<Geometry> geoList = new ArrayList<>();
+            Map<Geometry, PhysicsRigidBody> map = new HashMap<>();
+            for (Geometry g : this.scene.getGeometries()) {
+                geoList.add(g);
+            }
+            for (PhysicsRigidBody b : this.spheres) {
+                Geometry g = (Geometry) b.getUserObject();
+                geoList.add(g);
+                map.put(g, b);
+            }
+            RayResult[] results = Geometry.testRay(
+                    new Vector3f().set(this.camera.getPosition()),
+                    this.camera.getFront(),
+                    geoList
+            );
+            if (results.length != 0) {
+                RayResult closest = results[0];
+
+                PhysicsRigidBody sphere = map.get(closest.getGeometry());
+                if (sphere != null) {
+                    Vector3f camTarget = new Vector3f();
+                    camTarget.set(this.camera.getFront()).mul(0.25f);
+                    camTarget.add(new Vector3f().set(this.camera.getPosition()));
+
+                    Vector3f spherePosition = new Vector3f();
+                    com.jme3.math.Vector3f center = sphere.getPhysicsLocation(null);
+                    spherePosition.set(center.x, center.y, center.z);
+
+                    camTarget.sub(spherePosition).normalize();
+
+                    sphere.applyCentralImpulse(
+                            new com.jme3.math.Vector3f(
+                                    camTarget.x() * 0.01f,
+                                    camTarget.y() * 0.01f,
+                                    camTarget.z() * 0.01f
+                            )
+                    );
+                }
+            }
+        }
+
         this.physicsSpace.update((float) Main.TPF);
+        
+        List<PhysicsRigidBody> removed = new ArrayList<>();
+        for (PhysicsRigidBody e:this.spheres) {
+            if (e.getPhysicsLocation(null).y < -10f) {
+                this.physicsSpace.removeCollisionObject(e);
+                removed.add(e);
+            }
+        }
+        this.spheres.removeAll(removed);
     }
 
     public void bakePopupCallback(BakePopup popup) {
@@ -603,10 +699,7 @@ public class Game {
         if (key == GLFW_KEY_F && action == GLFW_PRESS) {
             this.sunEnabled = !this.sunEnabled;
         }
-    }
-
-    public void mouseCallback(long window, int button, int action, int mods) {
-        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        if (key == GLFW_KEY_E && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
             PhysicsRigidBody physicsSphere = new PhysicsRigidBody(sphereShape, 1f);
             physicsSphere.setPhysicsLocation(new com.jme3.math.Vector3f(
                     (float) this.camera.getPosition().x(),
@@ -621,9 +714,63 @@ public class Game {
             physicsSphere.setFriction(1f);
             physicsSphere.setRollingFriction(0.02f);
             physicsSphere.setSpinningFriction(0.02f);
-            physicsSphere.setRestitution(1f);
+            physicsSphere.setRestitution(0.75f);
+            physicsSphere.setUserObject(new Geometry(Geometries.SPHERE));
             this.physicsSpace.addCollisionObject(physicsSphere);
             this.spheres.add(physicsSphere);
+        }
+        if (key == GLFW_KEY_G && action == GLFW_PRESS) {
+            for (PhysicsRigidBody e:this.spheres) {
+                float x = (float) ((Math.random() * 2.0) - 1.0);
+                float z = (float) ((Math.random() * 2.0) - 1.0);
+                e.applyCentralImpulse(new com.jme3.math.Vector3f(x * 2f, 5f, z * 2f));
+            }
+        }
+    }
+
+    public void mouseCallback(long window, int button, int action, int mods) {
+        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+            List<Geometry> geoList = new ArrayList<>();
+            Map<Geometry, PhysicsRigidBody> map = new HashMap<>();
+            for (Geometry g : this.scene.getGeometries()) {
+                geoList.add(g);
+            }
+            for (PhysicsRigidBody b : this.spheres) {
+                Geometry g = (Geometry) b.getUserObject();
+                geoList.add(g);
+                map.put(g, b);
+            }
+            RayResult[] results = Geometry.testRay(
+                    new Vector3f().set(this.camera.getPosition()),
+                    this.camera.getFront(),
+                    geoList
+            );
+            if (results.length != 0) {
+                RayResult closest = results[0];
+
+                PhysicsRigidBody sphere = map.get(closest.getGeometry());
+                if (sphere != null) {
+                    Vector3f position = new Vector3f();
+                    position.set(closest.getHitPosition());
+                    com.jme3.math.Vector3f center = sphere.getPhysicsLocation(null);
+                    position.sub(center.x, center.y, center.z);
+
+                    com.jme3.math.Vector3f o = new com.jme3.math.Vector3f(
+                            position.x(),
+                            position.y(),
+                            position.z()
+                    );
+
+                    sphere.applyImpulse(
+                            new com.jme3.math.Vector3f(
+                                    this.camera.getFront().x() * 3f,
+                                    this.camera.getFront().y() * 3f,
+                                    this.camera.getFront().z() * 3f
+                            ),
+                            o
+                    );
+                }
+            }
         }
     }
 }

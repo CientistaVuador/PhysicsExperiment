@@ -47,14 +47,15 @@ import org.lwjgl.opengl.KHRDebug;
  */
 public class MeshData {
 
-    //position (vec3), texture uv (vec2), normal (vec3), tangent (vec3), lightmap uv (vec2), lightmap uv angle (float)
-    public static final int SIZE = 3 + 2 + 3 + 3 + 2;
+    //position (vec3), texture uv (vec2), normal (vec3), tangent (vec3), lightmap uv (vec2), ambient occlusion (float)
+    public static final int SIZE = 3 + 2 + 3 + 3 + 2 + 1;
 
     public static final int XYZ_OFFSET = 0;
     public static final int UV_OFFSET = 0 + 3;
     public static final int N_XYZ_OFFSET = 0 + 3 + 2;
     public static final int T_XYZ_OFFSET = 0 + 3 + 2 + 3;
     public static final int L_UV_OFFSET = 0 + 3 + 2 + 3 + 3;
+    public static final int AO_OFFSET = 0 + 3 + 2 + 3 + 3 + 2;
     
     public static final float EPSILON = 0.00001f;
     
@@ -74,6 +75,10 @@ public class MeshData {
         //tangent
         glEnableVertexAttribArray(3);
         glVertexAttribPointer(3, 3, GL_FLOAT, false, MeshData.SIZE * Float.BYTES, (T_XYZ_OFFSET * Float.BYTES));
+        
+        //ao
+        glEnableVertexAttribArray(5);
+        glVertexAttribPointer(5, 1, GL_FLOAT, false, MeshData.SIZE * Float.BYTES, (AO_OFFSET * Float.BYTES));
     }
     
     public static class LightmapMesh {

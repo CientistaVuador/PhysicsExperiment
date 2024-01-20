@@ -26,6 +26,7 @@
  */
 package cientistavuador.physicsexperiment.geometry;
 
+import cientistavuador.physicsexperiment.resources.mesh.MeshConfiguration;
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
 import cientistavuador.physicsexperiment.texture.Textures;
 import java.util.Map;
@@ -39,31 +40,36 @@ public class Geometries {
     public static final MeshData[] GARAGE;
     public static final MeshData CIENCOLA;
     public static final MeshData SPHERE;
+    public static final MeshData MONKEY;
     
     static {
-        Map<String, MeshData> meshes = GeometriesLoader.load("garage.obj.gz", "ciencola.obj", "sphere.obj");
-        MeshData bricks = meshes.get("garage.obj.gz@bricks");
-        MeshData concrete = meshes.get("garage.obj.gz@concrete");
-        MeshData grass = meshes.get("garage.obj.gz@grass");
-        MeshData red = meshes.get("garage.obj.gz@red");
-        MeshData monkey = meshes.get("garage.obj.gz@monkey");
-        MeshData torus = meshes.get("garage.obj.gz@torus");
-        MeshData sphere = meshes.get("garage.obj.gz@sphere");
+        Map<String, MeshData> meshes = GeometriesLoader.load(
+                MeshConfiguration.lightmapped("garage.obj"),
+                MeshConfiguration.nothing("ciencola.obj"),
+                MeshConfiguration.nothing("sphere.obj"),
+                MeshConfiguration.ambientOcclusion("monkey.obj")
+        );
+        MeshData bricks = meshes.get("garage.obj@bricks");
+        MeshData concrete = meshes.get("garage.obj@concrete");
+        MeshData grass = meshes.get("garage.obj@grass");
+        MeshData red = meshes.get("garage.obj@red");
         bricks.setTextureHint(Textures.BRICKS);
         concrete.setTextureHint(Textures.CONCRETE);
         grass.setTextureHint(Textures.GRASS);
         red.setTextureHint(Textures.RED);
-        torus.setTextureHint(Textures.CONCRETE);
-        sphere.setTextureHint(Textures.RED);
-        GARAGE = new MeshData[] {concrete, grass, bricks, red, torus, sphere, monkey};
+        GARAGE = new MeshData[] {concrete, grass, bricks, red};
         
         MeshData ciencola = meshes.get("ciencola.obj");
         ciencola.setTextureHint(Textures.CIENCOLA);
         CIENCOLA = ciencola;
         
-        MeshData debugSphere = meshes.get("sphere.obj");
-        debugSphere.setTextureHint(Textures.WHITE_TEXTURE);
-        SPHERE = debugSphere;
+        MeshData sphere = meshes.get("sphere.obj");
+        sphere.setTextureHint(Textures.WHITE_TEXTURE);
+        SPHERE = sphere;
+        
+        MeshData monkey = meshes.get("monkey.obj");
+        monkey.setTextureHint(Textures.RED);
+        MONKEY = monkey;
     }
     
     public static void init() {

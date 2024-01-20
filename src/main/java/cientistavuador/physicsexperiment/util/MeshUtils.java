@@ -251,6 +251,57 @@ public class MeshUtils {
         calculateTriangleNormal(ax, ay, az, bx, by, bz, cx, cy, cz, outNormal);
     }
     
+    public static int epsilonDistance(float[] vertices, int vertexSize, int xyzOffset, float epsilonDistance) {
+        int altered = 0;
+        boolean[] processed = new boolean[vertices.length / vertexSize];
+        
+        for (int v = 0; v < vertices.length; v += vertexSize) {
+            if (processed[v / vertexSize]) {
+                continue;
+            }
+            processed[v / vertexSize] = true;
+            
+            float x = vertices[v + xyzOffset + 0];
+            float y = vertices[v + xyzOffset + 1];
+            float z = vertices[v + xyzOffset + 2];
+            
+            for (int vOther = (v + vertexSize); vOther < vertices.length; vOther += vertexSize) {
+                if (processed[vOther / vertexSize]) {
+                    continue;
+                }
+                
+                float otherX = vertices[vOther + xyzOffset + 0];
+                float otherY = vertices[vOther + xyzOffset + 1];
+                float otherZ = vertices[vOther + xyzOffset + 2];
+                
+                float dX = x - otherX;
+                float dY = y - otherY;
+                float dZ = z - otherZ;
+                
+                float distance = (float) Math.sqrt((dX * dX) + (dY * dY) + (dZ * dZ));
+                
+                if (distance == 0f) {
+                    processed[vOther / vertexSize] = true;
+                    continue;
+                }
+                
+                if (distance <= epsilonDistance) {
+                    vertices[vOther + xyzOffset + 0] = x;
+                    vertices[vOther + xyzOffset + 1] = y;
+                    vertices[vOther + xyzOffset + 2] = z;
+                    processed[vOther / vertexSize] = true;
+                    altered++;
+                }
+            }
+        }
+        
+        return altered;
+    }
+    
+    public static void vertexAO(float[] vertices, int vertexSize, int xyzOffset, int outAoOffset, float aoSize, int aoRays, float rayOffset) {
+        VertexAO.vertexAO(vertices, vertexSize, xyzOffset, outAoOffset, aoSize, aoRays, rayOffset);
+    }
+    
     private MeshUtils() {
 
     }

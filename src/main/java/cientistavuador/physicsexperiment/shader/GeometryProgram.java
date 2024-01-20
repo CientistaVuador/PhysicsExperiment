@@ -204,6 +204,7 @@ public class GeometryProgram {
             layout (location = 2) in vec3 vertexNormal;
             layout (location = 3) in vec3 vertexTangent;
             layout (location = 4) in vec2 vertexLightmapUv;
+            layout (location = 5) in float vertexAO;
             
             out vec3 position;
             out vec2 uv;
@@ -211,6 +212,7 @@ public class GeometryProgram {
             out vec3 linearTangent;
             out vec2 lightmapUv;
             flat out int lightmapLength;
+            out float ambientOcclusion;
             
             void main() {
                 vec4 pos = model * vec4(vertexPosition, 1.0);
@@ -221,6 +223,7 @@ public class GeometryProgram {
                 linearTangent = normalize(normalModel * vertexTangent);
                 lightmapUv = vertexLightmapUv;
                 lightmapLength = textureSize(lightmap, 0).z;
+                ambientOcclusion = 1.0 - vertexAO;
                 
                 gl_Position = projectionView * pos;
             }
@@ -254,6 +257,7 @@ public class GeometryProgram {
             in vec3 linearTangent;
             in vec2 lightmapUv;
             flat in int lightmapLength;
+            in float ambientOcclusion;
             
             layout (location = 0) out vec4 colorOutput;
             
@@ -277,7 +281,7 @@ public class GeometryProgram {
                     
                     //sun
                     resultOutput += sunDiffuse * max(dot(normal, -sunDirection), 0.0) * textureColor.rgb;
-                    resultOutput += sunAmbient * textureColor.rgb;
+                    resultOutput += (sunAmbient * ambientOcclusion) * textureColor.rgb;
                     
                     //point lights
                     for (int i = 0; i < MAX_AMOUNT_OF_LIGHTS; i++) {
@@ -288,7 +292,7 @@ public class GeometryProgram {
                             float attenuation = 1.0 / (distance*distance);
                             
                             resultOutput += light.diffuse * max(dot(normal, lightDir), 0.0) * attenuation * textureColor.rgb;
-                            resultOutput += light.ambient * attenuation * textureColor.rgb;
+                            resultOutput += (light.ambient * ambientOcclusion) * attenuation * textureColor.rgb;
                         }
                     }
                     

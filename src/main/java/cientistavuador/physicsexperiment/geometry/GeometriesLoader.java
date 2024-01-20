@@ -26,6 +26,7 @@
  */
 package cientistavuador.physicsexperiment.geometry;
 
+import cientistavuador.physicsexperiment.resources.mesh.MeshConfiguration;
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
 import cientistavuador.physicsexperiment.resources.mesh.MeshResources;
 import java.util.ArrayDeque;
@@ -47,6 +48,21 @@ public class GeometriesLoader {
     public static final boolean DEBUG_OUTPUT = true;
 
     public static Map<String, MeshData> load(String... names) {
+        return load(names, null);
+    }
+    
+    public static Map<String, MeshData> load(MeshConfiguration... configurations) {
+        return load(null, configurations);
+    }
+    
+    private static Map<String, MeshData> load(String[] names, MeshConfiguration[] configurations) {
+        if (names == null) {
+            names = new String[configurations.length];
+            for (int i = 0; i < names.length; i++) {
+                names[i] = configurations[i].getName();
+            }
+        }
+        
         if (names.length == 0) {
             if (DEBUG_OUTPUT) {
                 System.out.println("No geometries to load.");
@@ -60,14 +76,19 @@ public class GeometriesLoader {
 
         ArrayDeque<Future<MeshData[]>> futureDatas = new ArrayDeque<>();
         List<MeshData> datas = new ArrayList<>();
-
+        
         for (int i = 0; i < names.length; i++) {
             final int index = i;
             if (DEBUG_OUTPUT) {
                 System.out.println("Loading geometry '" + names[index]);
             }
+            final String[] finalNames = names;
             futureDatas.add(CompletableFuture.supplyAsync(() -> {
-                return MeshResources.load(names[index]);
+                if (configurations == null) {
+                    return MeshResources.load(finalNames[index]);
+                } else {
+                    return MeshResources.load(configurations[index]);
+                }
             }));
         }
 

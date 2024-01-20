@@ -614,14 +614,14 @@ public class Main {
             Main.NUMBER_OF_DRAWCALLS = 0;
             Main.NUMBER_OF_VERTICES = 0;
             Main.WINDOW_TITLE = "Physics Experiment - FPS: " + Main.FPS;
-
+            
             if (SPIKE_LAG_WARNINGS) {
                 int tpfFps = (int) (1.0 / Main.TPF);
                 if (tpfFps < 60 && ((Main.FPS - tpfFps) > 30)) {
                     System.out.println("[Spike Lag Warning] From " + Main.FPS + " FPS to " + tpfFps + " FPS; current frame TPF: " + String.format("%.3f", Main.TPF) + "s");
                 }
             }
-
+            
             try (MemoryStack stack = MemoryStack.stackPush()) {
                 DoubleBuffer mouseX = stack.mallocDouble(1);
                 DoubleBuffer mouseY = stack.mallocDouble(1);

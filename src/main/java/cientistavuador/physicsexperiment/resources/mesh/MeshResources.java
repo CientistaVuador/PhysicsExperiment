@@ -42,13 +42,18 @@ import java.util.zip.GZIPInputStream;
 
 /**
  * Obj parser for blender generated obj files with triangulated faces and no materials.
+ *
  * @author Cien
  */
 public class MeshResources {
     
     public static MeshData[] load(String name) {
+        return load(MeshConfiguration.nothing(name));
+    }
+
+    public static MeshData[] load(MeshConfiguration configuration) {
         try {
-            return new MeshResources(name).get();
+            return new MeshResources(configuration).get();
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
@@ -56,11 +61,12 @@ public class MeshResources {
 
     //IO
     private final String name;
+    private final MeshConfiguration configuration;
     private int currentLine = 0;
 
     //parsing
     private String objectName = "";
-    
+
     private float[] positions = new float[64];
     private float[] textures = new float[64];
     private float[] normals = new float[64];
@@ -70,23 +76,24 @@ public class MeshResources {
     private int texturesIndex = 0;
     private int normalsIndex = 0;
     private int facesIndex = 0;
-    
+
     //generate vertices
     private float[] vertices = new float[64];
     private int verticesIndex = 0;
-    
+
     //output
     private final List<MeshData> output = new ArrayList<>();
     private boolean firstOutput = true;
-    
-    private MeshResources(String name) {
-        this.name = name;
+
+    private MeshResources(MeshConfiguration configuration) {
+        this.name = configuration.getName();
+        this.configuration = configuration;
     }
-    
+
     public MeshData[] get() throws IOException {
         InputStream stream = MeshResources.class.getResourceAsStream(this.name);
         if (stream == null) {
-            throw new IOException("'"+this.name+"' not found.");
+            throw new IOException("'" + this.name + "' not found.");
         }
         if (this.name.endsWith(".gz")) {
             stream = new GZIPInputStream(stream, 8192);
@@ -105,7 +112,7 @@ public class MeshResources {
         pushOutput();
         return this.output.toArray(MeshData[]::new);
     }
-    
+
     private void pushOutput() {
         if (this.firstOutput) {
             this.firstOutput = false;
@@ -118,7 +125,7 @@ public class MeshResources {
         this.verticesIndex = 0;
         this.facesIndex = 0;
     }
-    
+
     private void pushPosition(float x, float y, float z) {
         if ((this.positionsIndex + 3) > this.positions.length) {
             this.positions = Arrays.copyOf(this.positions, (this.positions.length * 2) + 3);
@@ -147,7 +154,7 @@ public class MeshResources {
         this.normals[this.normalsIndex + 2] = z;
         this.normalsIndex += 3;
     }
-    
+
     private void pushFaceIndices(int position, int texture, int normal) {
         if ((this.facesIndex + 3) > this.faces.length) {
             this.faces = Arrays.copyOf(this.faces, (this.faces.length * 2) + 3);
@@ -229,19 +236,20 @@ public class MeshResources {
                 pushOutput();
                 String[] nameSplit = line.split(" ", 2);
                 if (nameSplit.length == 2) {
-                    this.objectName = "@"+nameSplit[1];
+                    this.objectName = "@" + nameSplit[1];
                 } else {
                     this.objectName = "";
                 }
             }
         }
     }
-    
+
     private class PositionTextureNormal {
+
         public final int positionIndex;
         public final int textureIndex;
         public final int normalIndex;
-        
+
         public PositionTextureNormal(int index) {
             this.positionIndex = MeshResources.this.faces[(index * 3) + 0];
             this.textureIndex = MeshResources.this.faces[(index * 3) + 1];
@@ -278,7 +286,7 @@ public class MeshResources {
             return hash;
         }
     }
-    
+
     private void pushVertex(int position, int texture, int normal) {
         float x = this.positions[(position * 3) + 0];
         float y = this.positions[(position * 3) + 1];
@@ -288,7 +296,7 @@ public class MeshResources {
         float nx = this.normals[(normal * 3) + 0];
         float ny = this.normals[(normal * 3) + 1];
         float nz = this.normals[(normal * 3) + 2];
-        
+
         if (this.verticesIndex + 8 > this.vertices.length) {
             this.vertices = Arrays.copyOf(this.vertices, (this.vertices.length * 2) + 8);
         }
@@ -302,7 +310,7 @@ public class MeshResources {
         this.vertices[this.verticesIndex + 7] = nz;
         this.verticesIndex += 8;
     }
-    
+
     private void generateVertices() {
         for (int i = 0; i < this.facesIndex; i += 3) {
             pushVertex(
@@ -318,7 +326,16 @@ public class MeshResources {
         for (int i = 0; i < this.verticesIndex / 8; i++) {
             System.arraycopy(this.vertices, i * 8, newVertices, i * MeshData.SIZE, 8);
         }
-        
+
+        if (Float.isFinite(this.configuration.getEpsilonDistance()) && this.configuration.getEpsilonDistance() > 0f) {
+            MeshUtils.epsilonDistance(
+                    newVertices,
+                    MeshData.SIZE,
+                    MeshData.XYZ_OFFSET,
+                    this.configuration.getEpsilonDistance()
+            );
+        }
+
         MeshUtils.generateTangent(
                 newVertices,
                 MeshData.SIZE,
@@ -326,22 +343,34 @@ public class MeshResources {
                 MeshData.UV_OFFSET,
                 MeshData.T_XYZ_OFFSET
         );
-        
+
         for (int v = 0; v < newVertices.length; v += MeshData.SIZE) {
             newVertices[v + MeshData.L_UV_OFFSET + 0] = 0.5f;
             newVertices[v + MeshData.L_UV_OFFSET + 1] = 0.5f;
         }
-        
+
+        if (this.configuration.isVertexAOEnabled()) {
+            MeshUtils.vertexAO(
+                    newVertices,
+                    MeshData.SIZE,
+                    MeshData.XYZ_OFFSET,
+                    MeshData.AO_OFFSET,
+                    this.configuration.getVertexAOSize(),
+                    this.configuration.getVertexAORays(),
+                    this.configuration.getVertexAORayOffset()
+            );
+        }
+
         Pair<float[], int[]> verticesIndices = MeshUtils.generateIndices(
                 newVertices,
                 MeshData.SIZE
         );
-        
+
         return new MeshData(
-                this.name+this.objectName,
+                this.name + this.objectName,
                 verticesIndices.getA(),
                 verticesIndices.getB(),
-                true
+                this.configuration.isLightmapped()
         );
     }
 
