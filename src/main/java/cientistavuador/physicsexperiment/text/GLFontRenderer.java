@@ -32,7 +32,6 @@ import cientistavuador.physicsexperiment.resources.font.FontCharacter;
 import cientistavuador.physicsexperiment.ubo.FontTextUBO;
 import cientistavuador.physicsexperiment.util.ProgramCompiler;
 import java.util.HashMap;
-import java.util.regex.Pattern;
 import static org.lwjgl.opengl.GL33C.*;
 
 /**

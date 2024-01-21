@@ -178,7 +178,7 @@ public class VertexAO {
                 outNormal
         );
     }
-    
+
     private void randomTangentDirection(Vector3f outDirection, Random random) {
         float x;
         float y;
@@ -208,9 +208,11 @@ public class VertexAO {
 
         for (Vertex v : vertices) {
             calculateNormal(v, normal);
-            nX += normal.x();
-            nY += normal.y();
-            nZ += normal.z();
+            if (normal.isFinite()) {
+                nX += normal.x();
+                nY += normal.y();
+                nZ += normal.z();
+            }
         }
 
         normal.set(nX, nY, nZ).normalize();
@@ -238,20 +240,20 @@ public class VertexAO {
                 this.vertices[vertex + this.xyzOffset + 1],
                 this.vertices[vertex + this.xyzOffset + 2]
         );
-        
+
         Random random = new Random();
         Vector3f tangentDirection = new Vector3f();
         float result = 0f;
         for (int i = 0; i < this.aoRays; i++) {
             randomTangentDirection(tangentDirection, random);
             TBN.transform(tangentDirection).normalize();
-            
+
             if (this.bvh.fastTestRay(offsetPosition, tangentDirection, this.aoSize)) {
                 result++;
             }
         }
         result /= this.aoRays;
-        
+
         for (Vertex v : vertices) {
             this.vertices[v.vertex + this.outAoOffset] = result;
         }

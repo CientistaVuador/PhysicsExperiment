@@ -46,7 +46,7 @@ import java.util.zip.GZIPInputStream;
  * @author Cien
  */
 public class MeshResources {
-    
+
     public static MeshData[] load(String name) {
         return load(MeshConfiguration.nothing(name));
     }
@@ -361,16 +361,28 @@ public class MeshResources {
             );
         }
 
-        Pair<float[], int[]> verticesIndices = MeshUtils.generateIndices(
-                newVertices,
-                MeshData.SIZE
-        );
+        float[] outVertices;
+        int[] outIndices;
+
+        if (this.configuration.isLightmapped()) {
+            outVertices = newVertices;
+            outIndices = new int[newVertices.length / MeshData.SIZE];
+            for (int i = 0; i < outIndices.length; i++) {
+                outIndices[i] = i;
+            }
+        } else {
+            Pair<float[], int[]> verticesIndices = MeshUtils.generateIndices(
+                    newVertices,
+                    MeshData.SIZE
+            );
+            outVertices = verticesIndices.getA();
+            outIndices = verticesIndices.getB();
+        }
 
         return new MeshData(
                 this.name + this.objectName,
-                verticesIndices.getA(),
-                verticesIndices.getB(),
-                this.configuration.isLightmapped()
+                outVertices,
+                outIndices
         );
     }
 

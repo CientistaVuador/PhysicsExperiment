@@ -17,6 +17,7 @@
           <include>**/*.obj</include>
           <include>**/*.gz</include>
           <include>**/*.lightmap</include>
+          <include>**/*.mesh</include>
         </includes>
       </resource>
     </resources>

@@ -236,14 +236,19 @@ public class MeshData {
     private int vbo = 0;
     private int textureHint = Textures.ERROR_TEXTURE;
 
-    public MeshData(String name, float[] vertices, int[] indices, boolean addLightmapSupport) {
+    public MeshData(String name, float[] vertices, int[] indices) {
         this.name = name;
-        if (addLightmapSupport) {
-            Pair<float[], int[]> unindexed = MeshUtils.unindex(vertices, indices, MeshData.SIZE);
-            vertices = unindexed.getA();
-            indices = unindexed.getB();
+        boolean lightmapSupported = false;
+        if ((vertices.length / MeshData.SIZE) == indices.length) {
+            lightmapSupported = true;
+            for (int i = 0; i < indices.length; i++) {
+                if (indices[i] != i) {
+                    lightmapSupported = false;
+                    break;
+                }
+            }
         }
-        this.lightmapSupport = addLightmapSupport;
+        this.lightmapSupport = lightmapSupported;
         this.vertices = vertices;
         this.indices = indices;
         this.futureBvh = CompletableFuture.supplyAsync(() -> {

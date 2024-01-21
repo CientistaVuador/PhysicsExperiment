@@ -62,7 +62,7 @@ public class MeshConfiguration {
     }
     
     public static MeshConfiguration ambientOcclusion(String name) {
-        return ambientOcclusion(name, 0.1f, 24, 0.00001f);
+        return ambientOcclusion(name, 0.15f, 24, 0.0001f);
     }
     
     private final String name;

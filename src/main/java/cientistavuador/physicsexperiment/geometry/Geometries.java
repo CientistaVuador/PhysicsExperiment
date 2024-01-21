@@ -29,6 +29,13 @@ package cientistavuador.physicsexperiment.geometry;
 import cientistavuador.physicsexperiment.resources.mesh.MeshConfiguration;
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
 import cientistavuador.physicsexperiment.texture.Textures;
+import cientistavuador.physicsexperiment.util.MeshStore;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -45,9 +52,9 @@ public class Geometries {
     static {
         Map<String, MeshData> meshes = GeometriesLoader.load(
                 MeshConfiguration.lightmapped("garage.obj"),
-                MeshConfiguration.nothing("ciencola.obj"),
-                MeshConfiguration.nothing("sphere.obj"),
-                MeshConfiguration.ambientOcclusion("monkey.obj")
+                MeshConfiguration.nothing("ciencola.obj")//,
+                //MeshConfiguration.nothing("sphere.obj"),
+                //MeshConfiguration.ambientOcclusion("monkey.obj")
         );
         MeshData bricks = meshes.get("garage.obj@bricks");
         MeshData concrete = meshes.get("garage.obj@concrete");
@@ -63,12 +70,53 @@ public class Geometries {
         ciencola.setTextureHint(Textures.CIENCOLA);
         CIENCOLA = ciencola;
         
-        MeshData sphere = meshes.get("sphere.obj");
-        sphere.setTextureHint(Textures.WHITE_TEXTURE);
-        SPHERE = sphere;
+        MeshData sphere;
+        //sphere = meshes.get("sphere.obj");
+        try {
+            MeshStore.MeshStoreOutput storedSphere = MeshStore.decode(Geometries.class.getResourceAsStream("sphere.mesh"));
+            sphere = new MeshData(
+                    "sphere",
+                    storedSphere.vertices(),
+                    storedSphere.indices()
+            );
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
+        sphere.setTextureHint(Textures.RED);
         
-        MeshData monkey = meshes.get("monkey.obj");
+        MeshData monkey;
+        //monkey = meshes.get("monkey.obj");
+        try {
+            MeshStore.MeshStoreOutput storedMonkey = MeshStore.decode(Geometries.class.getResourceAsStream("monkey.mesh"));
+            monkey = new MeshData(
+                    "monkey",
+                    storedMonkey.vertices(),
+                    storedMonkey.indices()
+            );
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
         monkey.setTextureHint(Textures.RED);
+        
+        List<MeshData> toWrite = new ArrayList<>();
+        //toWrite.add(monkey);
+        //toWrite.add(sphere);
+        for (MeshData m:toWrite) {
+            try {
+                try (FileOutputStream out = new FileOutputStream(new File(m.getName()+".mesh"))) {
+                    MeshStore.encode(
+                            m.getVertices(),
+                            MeshData.SIZE,
+                            m.getIndices(),
+                            out
+                    );
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        
+        SPHERE = sphere;
         MONKEY = monkey;
     }
     

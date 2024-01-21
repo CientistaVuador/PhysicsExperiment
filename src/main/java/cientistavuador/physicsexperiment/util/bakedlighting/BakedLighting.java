@@ -56,6 +56,8 @@ import org.joml.Vector3fc;
  */
 public class BakedLighting {
 
+    private static final float EPSILON = 0.0001f;
+    
     private static class LightGroup {
 
         public String groupName = "";
@@ -527,7 +529,7 @@ public class BakedLighting {
         this.lightmapMesh = this.lightmapMeshes[index];
         this.geometryLightmapSize = this.lightmapMesh.getLightmapSize();
         this.lightmapperQuads = this.lightmapMesh.getQuads();
-        
+
         this.vertices = this.geometry.getMesh().getVertices();
         this.indices = this.geometry.getMesh().getIndices();
 
@@ -744,7 +746,7 @@ public class BakedLighting {
         public final Vector3f triangleNormal = new Vector3f();
         public final Vector3f position = new Vector3f();
         public final Vector3f normal = new Vector3f();
-        public final Matrix3f TBN = new Matrix3f();
+        public final Matrix3f triangleTBN = new Matrix3f();
     }
 
     private class DirectState {
@@ -819,8 +821,22 @@ public class BakedLighting {
                             state.triangleNormal
                     );
                     this.geometry.getNormalModel().transform(state.triangleNormal);
-                }
 
+                    float upX = 0f;
+                    float upY = 1f;
+                    float upZ = 0f;
+
+                    if (Math.abs(state.triangleNormal.dot(upX, upY, upZ)) >= (1f - EPSILON)) {
+                        upY = 0f;
+                        upX = 1f;
+                    }
+
+                    state.triangleNormal.cross(upX, upY, upZ, tangent).normalize();
+                    state.triangleNormal.cross(tangent, bitangent).normalize();
+                    
+                    state.triangleTBN.set(tangent, bitangent, state.triangleNormal);
+                }
+                
                 this.weightsBuffer.read(weights, x, y, s);
 
                 state.position.set(
@@ -847,8 +863,6 @@ public class BakedLighting {
                 state.normal.normalize();
                 tangent.normalize();
                 bitangent.set(state.normal).cross(tangent).normalize();
-
-                state.TBN.set(tangent, bitangent, state.normal);
 
                 direct.output.zero();
                 shadow.output = 0f;
@@ -1088,7 +1102,7 @@ public class BakedLighting {
     private void processIndirect(SampleState state, IndirectState indirect) {
         for (int i = 0; i < this.scene.getIndirectRaysPerSample(); i++) {
             randomTangentDirection(indirect.bounceDirection, state.random);
-            state.TBN.transform(indirect.bounceDirection);
+            state.triangleTBN.transform(indirect.bounceDirection);
 
             float rayOffset = this.scene.getRayOffset();
             float offsetX = state.triangleNormal.x() * rayOffset;
@@ -1369,7 +1383,7 @@ public class BakedLighting {
                 }
                 return !boundsMap[x + (y * width)];
             }
-            
+
             @Override
             public void write(int x, int y, GaussianBlur.GaussianColor color) {
                 float shadow = (color.r + color.g + color.b) / 3f;
@@ -1408,7 +1422,7 @@ public class BakedLighting {
         this.status.setProgressBarStep(this.geometryLightmapSize);
         for (int y = 0; y < this.geometryLightmapSize; y++) {
             setStatusText("[" + y + "/" + this.geometryLightmapSize + "] Combining Light Components");
-            
+
             for (int x = 0; x < this.geometryLightmapSize; x++) {
                 int processedSamples = 0;
                 for (int s = 0; s < numSamples; s++) {
@@ -1563,7 +1577,7 @@ public class BakedLighting {
             setStatusText("[" + y + "/" + this.geometryLightmapSize + "] Writing to Lightmap");
             for (int x = 0; x < this.geometryLightmapSize; x++) {
                 this.lightGroupOutput.read(color, x, y, 0);
-                
+
                 finalOutputBuffer[0 + (x * 3) + (y * this.geometryLightmapSize * 3)] = color.x();
                 finalOutputBuffer[1 + (x * 3) + (y * this.geometryLightmapSize * 3)] = color.y();
                 finalOutputBuffer[2 + (x * 3) + (y * this.geometryLightmapSize * 3)] = color.z();

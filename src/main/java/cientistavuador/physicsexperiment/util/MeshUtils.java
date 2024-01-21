@@ -26,7 +26,12 @@
  */
 package cientistavuador.physicsexperiment.util;
 
+import cientistavuador.physicsexperiment.resources.mesh.MeshConfiguration;
+import cientistavuador.physicsexperiment.resources.mesh.MeshData;
 import cientistavuador.physicsexperiment.util.bakedlighting.LightmapUVs;
+import com.jme3.bullet.collision.shapes.CollisionShape;
+import com.jme3.bullet.util.DebugShapeFactory;
+import java.nio.FloatBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +42,7 @@ import org.joml.Vector3f;
  * @author Cien
  */
 public class MeshUtils {
-    
+
     public static void generateTangent(float[] vertices, int vertexSize, int xyzOffset, int uvOffset, int outTangentXYZOffset) {
         if (vertices.length % vertexSize != 0) {
             throw new IllegalArgumentException("Wrong size.");
@@ -199,7 +204,7 @@ public class MeshUtils {
                 Arrays.copyOf(indices, indicesIndex)
         );
     }
-    
+
     public static Pair<float[], int[]> unindex(float[] vertices, int[] indices, int vertexSize) {
         float[] unindexedVertices = new float[indices.length * vertexSize];
         int[] unindexedIndices = new int[indices.length];
@@ -209,11 +214,11 @@ public class MeshUtils {
         }
         return new Pair<>(unindexedVertices, unindexedIndices);
     }
-    
+
     public static LightmapUVs.GeneratorOutput generateLightmapUVs(float[] vertices, int vertexSize, int xyzOffset, float pixelToWorldRatio, float scaleX, float scaleY, float scaleZ) {
         return LightmapUVs.generate(vertices, vertexSize, xyzOffset, pixelToWorldRatio, scaleX, scaleY, scaleZ);
     }
-    
+
     public static void calculateTriangleNormal(
             float ax, float ay, float az,
             float bx, float by, float bz,
@@ -221,20 +226,20 @@ public class MeshUtils {
             Vector3f outNormal
     ) {
         outNormal.set(bx, by, bz).sub(ax, ay, az).normalize();
-        
+
         float baX = outNormal.x();
         float baY = outNormal.y();
         float baZ = outNormal.z();
-        
+
         outNormal.set(cx, cy, cz).sub(ax, ay, az).normalize();
-        
+
         float caX = outNormal.x();
         float caY = outNormal.y();
         float caZ = outNormal.z();
-        
+
         outNormal.set(baX, baY, baZ).cross(caX, caY, caZ).normalize();
     }
-    
+
     public static void calculateTriangleNormal(float[] vertices, int vertexSize, int xyzOffset, int i0, int i1, int i2, Vector3f outNormal) {
         float ax = vertices[(i0 * vertexSize) + xyzOffset + 0];
         float ay = vertices[(i0 * vertexSize) + xyzOffset + 1];
@@ -247,44 +252,44 @@ public class MeshUtils {
         float cx = vertices[(i2 * vertexSize) + xyzOffset + 0];
         float cy = vertices[(i2 * vertexSize) + xyzOffset + 1];
         float cz = vertices[(i2 * vertexSize) + xyzOffset + 2];
-        
+
         calculateTriangleNormal(ax, ay, az, bx, by, bz, cx, cy, cz, outNormal);
     }
-    
+
     public static int epsilonDistance(float[] vertices, int vertexSize, int xyzOffset, float epsilonDistance) {
         int altered = 0;
         boolean[] processed = new boolean[vertices.length / vertexSize];
-        
+
         for (int v = 0; v < vertices.length; v += vertexSize) {
             if (processed[v / vertexSize]) {
                 continue;
             }
             processed[v / vertexSize] = true;
-            
+
             float x = vertices[v + xyzOffset + 0];
             float y = vertices[v + xyzOffset + 1];
             float z = vertices[v + xyzOffset + 2];
-            
+
             for (int vOther = (v + vertexSize); vOther < vertices.length; vOther += vertexSize) {
                 if (processed[vOther / vertexSize]) {
                     continue;
                 }
-                
+
                 float otherX = vertices[vOther + xyzOffset + 0];
                 float otherY = vertices[vOther + xyzOffset + 1];
                 float otherZ = vertices[vOther + xyzOffset + 2];
-                
+
                 float dX = x - otherX;
                 float dY = y - otherY;
                 float dZ = z - otherZ;
-                
+
                 float distance = (float) Math.sqrt((dX * dX) + (dY * dY) + (dZ * dZ));
-                
+
                 if (distance == 0f) {
                     processed[vOther / vertexSize] = true;
                     continue;
                 }
-                
+
                 if (distance <= epsilonDistance) {
                     vertices[vOther + xyzOffset + 0] = x;
                     vertices[vOther + xyzOffset + 1] = y;
@@ -294,14 +299,63 @@ public class MeshUtils {
                 }
             }
         }
-        
+
         return altered;
     }
-    
+
     public static void vertexAO(float[] vertices, int vertexSize, int xyzOffset, int outAoOffset, float aoSize, int aoRays, float rayOffset) {
         VertexAO.vertexAO(vertices, vertexSize, xyzOffset, outAoOffset, aoSize, aoRays, rayOffset);
     }
-    
+
+    public static MeshData createMeshFromCollisionShape(String name, CollisionShape shape) {
+        FloatBuffer verts = DebugShapeFactory.getDebugTriangles(shape, DebugShapeFactory.highResolution);
+        verts.flip();
+
+        int amountOfVertices = verts.capacity() / 3;
+        float[] vertices = new float[amountOfVertices * MeshData.SIZE];
+        for (int v = 0; v < amountOfVertices; v++) {
+            verts.get(vertices, v * MeshData.SIZE, 3);
+        }
+
+        Vector3f normal = new Vector3f();
+        for (int v = 0; v < amountOfVertices; v += 3) {
+            int i0 = v + 0;
+            int i1 = v + 1;
+            int i2 = v + 2;
+
+            calculateTriangleNormal(
+                    vertices, MeshData.SIZE, MeshData.XYZ_OFFSET,
+                    i0, i1, i2,
+                    normal
+            );
+
+            int v0 = i0 * MeshData.SIZE;
+            int v1 = i1 * MeshData.SIZE;
+            int v2 = i2 * MeshData.SIZE;
+
+            vertices[v0 + MeshData.N_XYZ_OFFSET + 0] = normal.x();
+            vertices[v0 + MeshData.N_XYZ_OFFSET + 1] = normal.y();
+            vertices[v0 + MeshData.N_XYZ_OFFSET + 2] = normal.z();
+
+            vertices[v1 + MeshData.N_XYZ_OFFSET + 0] = normal.x();
+            vertices[v1 + MeshData.N_XYZ_OFFSET + 1] = normal.y();
+            vertices[v1 + MeshData.N_XYZ_OFFSET + 2] = normal.z();
+
+            vertices[v2 + MeshData.N_XYZ_OFFSET + 0] = normal.x();
+            vertices[v2 + MeshData.N_XYZ_OFFSET + 1] = normal.y();
+            vertices[v2 + MeshData.N_XYZ_OFFSET + 2] = normal.z();
+        }
+        
+        MeshUtils.epsilonDistance(
+                vertices, MeshData.SIZE, MeshData.XYZ_OFFSET,
+                0.0001f
+        );
+        
+        Pair<float[], int[]> generated = MeshUtils.generateIndices(vertices, MeshData.SIZE);
+        
+        return new MeshData(name, generated.getA(), generated.getB());
+    }
+
     private MeshUtils() {
 
     }

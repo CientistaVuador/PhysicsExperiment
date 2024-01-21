@@ -24,12 +24,12 @@
  *
  * For more information, please refer to <https://unlicense.org>
  */
-package cientistavuador.physicsexperiment.util;
+package cientistavuador.physicsexperiment.player;
 
 /**
  *
  * @author Cien
  */
-public class JJConverter {
+public class Player {
     
 }

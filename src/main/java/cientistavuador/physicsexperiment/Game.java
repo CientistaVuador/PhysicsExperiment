@@ -215,9 +215,9 @@ public class Game {
 
     public void start() {
         this.physicsSpace.setMaxSubSteps(0);
-        
+
         this.monkeyGeometry.setModel(new Matrix4f().translate(0, 7, 0));
-        
+
         camera.setPosition(1f, 3f, -5f);
         camera.setUBO(CameraUBO.create(UBOBindingPoints.PLAYER_CAMERA));
 
@@ -540,16 +540,16 @@ public class Game {
             }
         }
 
-        this.physicsSpace.update((float) Main.TPF);
-        
         List<PhysicsRigidBody> removed = new ArrayList<>();
-        for (PhysicsRigidBody e:this.spheres) {
+        for (PhysicsRigidBody e : this.spheres) {
             if (e.getPhysicsLocation(null).y < -10f) {
                 this.physicsSpace.removeCollisionObject(e);
                 removed.add(e);
             }
         }
         this.spheres.removeAll(removed);
+        
+        this.physicsSpace.update((float) Main.TPF);
     }
 
     public void bakePopupCallback(BakePopup popup) {
@@ -720,7 +720,7 @@ public class Game {
             this.spheres.add(physicsSphere);
         }
         if (key == GLFW_KEY_G && action == GLFW_PRESS) {
-            for (PhysicsRigidBody e:this.spheres) {
+            for (PhysicsRigidBody e : this.spheres) {
                 float x = (float) ((Math.random() * 2.0) - 1.0);
                 float z = (float) ((Math.random() * 2.0) - 1.0);
                 e.applyCentralImpulse(new com.jme3.math.Vector3f(x * 2f, 5f, z * 2f));
