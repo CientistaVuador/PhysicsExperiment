@@ -89,10 +89,10 @@ public class FreeCamera extends PerspectiveCamera {
             directionZ += -1;
         }
         if (isKeyDown(GLFW_KEY_A)) {
-            directionX += 1;
+            directionX += -1;
         }
         if (isKeyDown(GLFW_KEY_D)) {
-            directionX += -1;
+            directionX += 1;
         }
         
         float diagonal = (Math.abs(directionX) == 1 && Math.abs(directionZ) == 1) ? 0.707106781186f : 1f;

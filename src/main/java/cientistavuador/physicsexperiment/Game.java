@@ -219,7 +219,7 @@ public class Game {
 
         geometry.setLightmapMesh(mesh);
     }
-    
+
     public void start() {
         this.physicsSpace.setMaxSubSteps(8);
         this.physicsSpace.setAccuracy(1f / 120f);
@@ -322,7 +322,7 @@ public class Game {
             worldMeshes.add(collisionMesh);
         }
         MeshCollisionShape world = new MeshCollisionShape(true, worldMeshes);
-        world.setMargin(0.015f);
+        world.setMargin(0.01f);
         PhysicsRigidBody worldBody = new PhysicsRigidBody(world, 0f);
         worldBody.setRestitution(0.25f);
         this.physicsSpace.addCollisionObject(worldBody);
@@ -371,7 +371,7 @@ public class Game {
         GeometryProgram.INSTANCE.setBakedLightGroupIntensity(1, this.sunIntensity);
 
         if (this.playerActive) {
-            this.player.updateMovement(this.camera.getFront(), this.physicsSpace.getAccuracy());
+            this.player.updateMovement(this.camera.getFront(), this.camera.getRight(), this.physicsSpace.getAccuracy());
 
             camera.setPosition(
                     this.player.getEyePosition().x(),
@@ -540,7 +540,8 @@ public class Game {
             .append("F - Player/Freecam\n")
             .append("Space - Jump\n")
             .append("G - Random Impulse\n")
-            .append("R - Reset Player Position")
+            .append("R - Reset Player Position\n")
+            .append("V - Noclip\n")
             .toString()
         };
         GLFontRenderer.render(-0.895f, -0.70f, new GLFontSpecification[]{GLFontSpecifications.SPACE_MONO_REGULAR_0_035_BLACK}, text);
@@ -783,8 +784,15 @@ public class Game {
             resetPlayer();
         }
         if (key == GLFW_KEY_SPACE && action == GLFW_PRESS && this.playerActive) {
-            if (this.player.onGround()) {
-                this.player.jump();
+            if (this.playerActive) {
+                if (this.player.onGround()) {
+                    this.player.jump();
+                }
+            }
+        }
+        if (key == GLFW_KEY_V && action == GLFW_PRESS) {
+            if (this.playerActive) {
+                this.player.setNoclipEnabled(!this.player.isNoclipEnabled());
             }
         }
     }

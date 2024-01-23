@@ -58,7 +58,7 @@ public class PerspectiveCamera implements Camera {
     private float fov = DEFAULT_FOV;
     
     //Camera axises
-    private final Vector3f front = new Vector3f(0, 0, 1);
+    private final Vector3f front = new Vector3f(0, 0, -1);
     private final Vector3f up = new Vector3f(0, 1, 0);
     private final Vector3f right = new Vector3f(1, 0, 0);
     
@@ -115,8 +115,8 @@ public class PerspectiveCamera implements Camera {
                 Math.cos(pitchRadians) * Math.sin(yawRadians)
         ).normalize();
         
-        this.right.set(DEFAULT_WORLD_UP).cross(this.front).normalize();
-        this.up.set(this.front).cross(this.right).normalize();
+        this.right.set(this.front).cross(DEFAULT_WORLD_UP).normalize();
+        this.up.set(this.right).cross(this.front).normalize();
         
         this.view.identity().lookAt(
                 0,

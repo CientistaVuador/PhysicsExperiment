@@ -156,8 +156,8 @@ public class ShadowCamera implements Camera {
     private void buildView() {
         this.front.normalize();
 
-        this.right.set(DEFAULT_WORLD_UP).cross(this.front).normalize();
-        this.up.set(this.front).cross(this.right).normalize();
+        this.right.set(this.front).cross(DEFAULT_WORLD_UP).normalize();
+        this.up.set(this.right).cross(this.front).normalize();
 
         this.view.setLookAt(
                 0,
