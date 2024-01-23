@@ -118,32 +118,33 @@ public class Geometry {
     }
     
     private final MeshData mesh;
+    
     private final Matrix4f model = new Matrix4f();
     private final Matrix4f inverseModel = new Matrix4f();
     private final Matrix3f normalModel = new Matrix3f();
     private final Matrix3f inverseNormalModel = new Matrix3f();
-
+    
     private int lightmapTextureHint = Textures.EMPTY_LIGHTMAP;
     private MeshData.LightmapMesh lightmapMesh = null;
-
+    
     private float lightmapScale = 1f;
-
+    
     public Geometry(MeshData mesh) {
         this.mesh = mesh;
     }
-
+    
     public MeshData getMesh() {
         return mesh;
     }
-
+    
     public Matrix4fc getModel() {
         return model;
     }
-
+    
     public Matrix4fc getInverseModel() {
         return inverseModel;
     }
-
+    
     public Matrix3fc getNormalModel() {
         return normalModel;
     }

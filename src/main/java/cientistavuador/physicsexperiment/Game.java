@@ -31,6 +31,7 @@ import cientistavuador.physicsexperiment.debug.AabRender;
 import cientistavuador.physicsexperiment.debug.LineRender;
 import cientistavuador.physicsexperiment.geometry.Geometries;
 import cientistavuador.physicsexperiment.geometry.Geometry;
+import cientistavuador.physicsexperiment.player.PlayerController;
 import cientistavuador.physicsexperiment.popups.BakePopup;
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
 import cientistavuador.physicsexperiment.shader.GeometryProgram;
@@ -46,6 +47,7 @@ import cientistavuador.physicsexperiment.util.raycast.RayResult;
 import cientistavuador.physicsexperiment.util.bakedlighting.SamplingMode;
 import cientistavuador.physicsexperiment.util.bakedlighting.Scene;
 import com.jme3.bullet.PhysicsSpace;
+import com.jme3.bullet.collision.shapes.CollisionShape;
 import com.jme3.bullet.collision.shapes.MeshCollisionShape;
 import com.jme3.bullet.collision.shapes.SphereCollisionShape;
 import com.jme3.bullet.collision.shapes.infos.IndexedMesh;
@@ -70,6 +72,8 @@ import org.joml.Vector3f;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL33C.*;
 import org.lwjgl.opengl.GL42C;
+import vhacd.VHACDParameters;
+import vhacd4.Vhacd4;
 
 /**
  *
@@ -180,6 +184,9 @@ public class Game {
 
     private final Geometry monkeyGeometry = new Geometry(Geometries.MONKEY);
 
+    private final PlayerController player = new PlayerController();
+    private boolean playerActive = false;
+
     private Game() {
 
     }
@@ -212,9 +219,14 @@ public class Game {
 
         geometry.setLightmapMesh(mesh);
     }
-
+    
     public void start() {
-        this.physicsSpace.setMaxSubSteps(0);
+        this.physicsSpace.setMaxSubSteps(8);
+        this.physicsSpace.setAccuracy(1f / 120f);
+
+        resetPlayer();
+
+        this.physicsSpace.add(this.player.getCharacterPhysics());
 
         this.monkeyGeometry.setModel(new Matrix4f().translate(0, 7, 0));
 
@@ -358,6 +370,20 @@ public class Game {
         GeometryProgram.INSTANCE.setBakedLightGroupIntensity(0, this.interiorIntensity);
         GeometryProgram.INSTANCE.setBakedLightGroupIntensity(1, this.sunIntensity);
 
+        if (this.playerActive) {
+            this.player.updateMovement(this.camera.getFront(), this.physicsSpace.getAccuracy());
+
+            camera.setPosition(
+                    this.player.getEyePosition().x(),
+                    this.player.getEyePosition().y(),
+                    this.player.getEyePosition().z()
+            );
+        }
+
+        if (this.player.getPosition().y() < -10f) {
+            resetPlayer();
+        }
+
         camera.updateMovement();
         camera.updateUBO();
 
@@ -431,6 +457,17 @@ public class Game {
         program.setModel(this.monkeyGeometry.getModel());
         this.monkeyGeometry.getMesh().bindRenderUnbind();
 
+        if (!this.playerActive) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, Textures.WHITE_TEXTURE);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, Textures.EMPTY_LIGHTMAP);
+            program.setModel(new Matrix4f()
+                    .translate(this.player.getPosition())
+            );
+            PlayerController.PLAYER_COLLISION_MESH.bindRenderUnbind();
+        }
+
         for (PhysicsRigidBody e : this.spheres) {
             Geometry geo = (Geometry) e.getUserObject();
 
@@ -495,6 +532,20 @@ public class Game {
             GLFontRenderer.render(-0.90f, 0.80f, new GLFontSpecification[]{GLFontSpecifications.SPACE_MONO_REGULAR_0_035_WHITE}, text);
         }
 
+        String[] text = new String[]{
+            new StringBuilder()
+            .append("Escape - Lock/Unlock Mouse\n")
+            .append("LMB - Push, RMB - Pull\n")
+            .append("E - Create Ball\n")
+            .append("F - Player/Freecam\n")
+            .append("Space - Jump\n")
+            .append("G - Random Impulse\n")
+            .append("R - Reset Player Position")
+            .toString()
+        };
+        GLFontRenderer.render(-0.895f, -0.70f, new GLFontSpecification[]{GLFontSpecifications.SPACE_MONO_REGULAR_0_035_BLACK}, text);
+        GLFontRenderer.render(-0.90f, -0.695f, new GLFontSpecification[]{GLFontSpecifications.SPACE_MONO_REGULAR_0_035_WHITE}, text);
+
         Main.WINDOW_TITLE += " (DrawCalls: " + Main.NUMBER_OF_DRAWCALLS + ", Vertices: " + Main.NUMBER_OF_VERTICES + ")";
         Main.WINDOW_TITLE += " (x:" + (int) Math.floor(camera.getPosition().x()) + ",y:" + (int) Math.floor(camera.getPosition().y()) + ",z:" + (int) Math.ceil(camera.getPosition().z()) + ")";
 
@@ -548,7 +599,7 @@ public class Game {
             }
         }
         this.spheres.removeAll(removed);
-        
+
         this.physicsSpace.update((float) Main.TPF);
     }
 
@@ -621,6 +672,10 @@ public class Game {
         }
     }
 
+    public void resetPlayer() {
+        this.player.setPosition(0f, 5f, -5f);
+    }
+
     public void mouseCursorMoved(double x, double y) {
         camera.mouseCursorMoved(x, y);
     }
@@ -630,6 +685,10 @@ public class Game {
     }
 
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
+        if (key == GLFW_KEY_F && action == GLFW_PRESS) {
+            this.playerActive = !this.playerActive;
+            this.camera.setMovementDisabled(this.playerActive);
+        }
         if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
             if (!this.bakeWindowOpen) {
                 this.bakeWindowOpen = true;
@@ -693,12 +752,6 @@ public class Game {
                 }).start();
             }
         }
-        if (key == GLFW_KEY_I && action == GLFW_PRESS) {
-            this.interiorEnabled = !this.interiorEnabled;
-        }
-        if (key == GLFW_KEY_F && action == GLFW_PRESS) {
-            this.sunEnabled = !this.sunEnabled;
-        }
         if (key == GLFW_KEY_E && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
             PhysicsRigidBody physicsSphere = new PhysicsRigidBody(sphereShape, 1f);
             physicsSphere.setPhysicsLocation(new com.jme3.math.Vector3f(
@@ -724,6 +777,14 @@ public class Game {
                 float x = (float) ((Math.random() * 2.0) - 1.0);
                 float z = (float) ((Math.random() * 2.0) - 1.0);
                 e.applyCentralImpulse(new com.jme3.math.Vector3f(x * 2f, 5f, z * 2f));
+            }
+        }
+        if (key == GLFW_KEY_R && action == GLFW_PRESS) {
+            resetPlayer();
+        }
+        if (key == GLFW_KEY_SPACE && action == GLFW_PRESS && this.playerActive) {
+            if (this.player.onGround()) {
+                this.player.jump();
             }
         }
     }
