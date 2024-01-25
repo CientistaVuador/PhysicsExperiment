@@ -40,7 +40,7 @@ import org.joml.Vector4f;
 import org.joml.Vector4i;
 
 /**
- * this algorithm is o(n^3), it will crash with more than 1.61803398875 triangles
+ * is this o(n^3)?
  * @author Cien
  */
 public class LightmapUVs {

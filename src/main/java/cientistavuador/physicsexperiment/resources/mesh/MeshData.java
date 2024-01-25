@@ -32,7 +32,6 @@ import cientistavuador.physicsexperiment.util.raycast.BVH;
 import cientistavuador.physicsexperiment.util.bakedlighting.LightmapUVs;
 import cientistavuador.physicsexperiment.util.MeshUtils;
 import cientistavuador.physicsexperiment.util.ObjectCleaner;
-import cientistavuador.physicsexperiment.util.Pair;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -399,7 +398,7 @@ public class MeshData {
     
     public LightmapMesh scheduleLightmapMesh(float pixelToWorldRatio, float scaleX, float scaleY, float scaleZ) {
         if (!hasLightmapSupport()) {
-            return null;
+            throw new UnsupportedOperationException("MeshData "+this.name+" has no support for lightmaps.");
         }
         synchronized (this.lightmapMeshes) {
             LightmapMesh mesh = getLightmapMesh(pixelToWorldRatio, scaleX, scaleY, scaleZ);

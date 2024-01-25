@@ -31,7 +31,8 @@ import cientistavuador.physicsexperiment.debug.AabRender;
 import cientistavuador.physicsexperiment.debug.LineRender;
 import cientistavuador.physicsexperiment.geometry.Geometries;
 import cientistavuador.physicsexperiment.geometry.Geometry;
-import cientistavuador.physicsexperiment.player.PlayerController;
+import cientistavuador.physicsexperiment.characterphysics.PlayerController;
+import cientistavuador.physicsexperiment.geometry.GeometriesLoader;
 import cientistavuador.physicsexperiment.popups.BakePopup;
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
 import cientistavuador.physicsexperiment.shader.GeometryProgram;
@@ -47,7 +48,6 @@ import cientistavuador.physicsexperiment.util.raycast.RayResult;
 import cientistavuador.physicsexperiment.util.bakedlighting.SamplingMode;
 import cientistavuador.physicsexperiment.util.bakedlighting.Scene;
 import com.jme3.bullet.PhysicsSpace;
-import com.jme3.bullet.collision.shapes.CollisionShape;
 import com.jme3.bullet.collision.shapes.MeshCollisionShape;
 import com.jme3.bullet.collision.shapes.SphereCollisionShape;
 import com.jme3.bullet.collision.shapes.infos.IndexedMesh;
@@ -72,8 +72,6 @@ import org.joml.Vector3f;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL33C.*;
 import org.lwjgl.opengl.GL42C;
-import vhacd.VHACDParameters;
-import vhacd4.Vhacd4;
 
 /**
  *
@@ -222,17 +220,17 @@ public class Game {
 
     public void start() {
         this.physicsSpace.setMaxSubSteps(8);
-        this.physicsSpace.setAccuracy(1f / 120f);
-
+        this.physicsSpace.setAccuracy(1f / 240f);
+        
+        this.player.getCharacterPhysics().addToPhysicsSpace(this.physicsSpace);
+        
         resetPlayer();
-
-        this.physicsSpace.add(this.player.getCharacterPhysics());
-
+        
         this.monkeyGeometry.setModel(new Matrix4f().translate(0, 7, 0));
-
+        
         camera.setPosition(1f, 3f, -5f);
         camera.setUBO(CameraUBO.create(UBOBindingPoints.PLAYER_CAMERA));
-
+        
         GeometryProgram program = GeometryProgram.INSTANCE;
         program.use();
         program.setModel(new Matrix4f());
@@ -252,7 +250,7 @@ public class Game {
         loadLightmap(this.scene.getGeometries().get(2), "bricks.lightmap");
         loadLightmap(this.scene.getGeometries().get(3), "red.lightmap");
         this.geometryLightmaps.clear();
-
+        
         this.scene.setIndirectLightingEnabled(true);
         this.scene.setDirectLightingEnabled(true);
         this.scene.setShadowsEnabled(true);
@@ -794,6 +792,9 @@ public class Game {
             if (this.playerActive) {
                 this.player.setNoclipEnabled(!this.player.isNoclipEnabled());
             }
+        }
+        if (key == GLFW_KEY_LEFT_CONTROL && action == GLFW_PRESS) {
+            this.player.setCrouched(!this.player.isCrouched(), this.physicsSpace);
         }
     }
 
