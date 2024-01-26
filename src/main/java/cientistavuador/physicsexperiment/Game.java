@@ -220,13 +220,13 @@ public class Game {
 
     public void start() {
         this.physicsSpace.setMaxSubSteps(8);
-        this.physicsSpace.setAccuracy(1f / 240f);
+        this.physicsSpace.setAccuracy(1f / 120f);
         
-        this.player.getCharacterPhysics().addToPhysicsSpace(this.physicsSpace);
+        this.player.getCharacterController().addToPhysicsSpace(this.physicsSpace);
         
         resetPlayer();
         
-        this.monkeyGeometry.setModel(new Matrix4f().translate(0, 7, 0));
+        this.monkeyGeometry.setModel(new Matrix4f().translate(0, 30, 0).scale(20f));
         
         camera.setPosition(1f, 3f, -5f);
         camera.setUBO(CameraUBO.create(UBOBindingPoints.PLAYER_CAMERA));
@@ -463,7 +463,13 @@ public class Game {
             program.setModel(new Matrix4f()
                     .translate(this.player.getPosition())
             );
-            PlayerController.PLAYER_COLLISION_MESH.bindRenderUnbind();
+            MeshData data;
+            if (this.player.getCharacterController().isCrouched()) {
+                data = this.player.getCrouchCollisionMeshData();
+            } else {
+                data = this.player.getCollisionMeshData();
+            }
+            data.bindRenderUnbind();
         }
 
         for (PhysicsRigidBody e : this.spheres) {
@@ -783,18 +789,13 @@ public class Game {
         }
         if (key == GLFW_KEY_SPACE && action == GLFW_PRESS && this.playerActive) {
             if (this.playerActive) {
-                if (this.player.onGround()) {
-                    this.player.jump();
-                }
+                this.player.jump();
             }
         }
         if (key == GLFW_KEY_V && action == GLFW_PRESS) {
             if (this.playerActive) {
-                this.player.setNoclipEnabled(!this.player.isNoclipEnabled());
+                this.player.getCharacterController().setNoclipEnabled(!this.player.getCharacterController().isNoclipEnabled());
             }
-        }
-        if (key == GLFW_KEY_LEFT_CONTROL && action == GLFW_PRESS) {
-            this.player.setCrouched(!this.player.isCrouched(), this.physicsSpace);
         }
     }
 
