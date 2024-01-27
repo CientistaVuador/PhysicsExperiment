@@ -26,7 +26,6 @@
  */
 package cientistavuador.physicsexperiment.util;
 
-import cientistavuador.physicsexperiment.resources.mesh.MeshConfiguration;
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
 import cientistavuador.physicsexperiment.util.bakedlighting.LightmapUVs;
 import com.jme3.bullet.collision.shapes.CollisionShape;

@@ -27,6 +27,7 @@
 package cientistavuador.physicsexperiment;
 
 import cientistavuador.physicsexperiment.camera.FreeCamera;
+import cientistavuador.physicsexperiment.characterphysics.DynamicPlayerController;
 import cientistavuador.physicsexperiment.debug.AabRender;
 import cientistavuador.physicsexperiment.debug.LineRender;
 import cientistavuador.physicsexperiment.geometry.Geometries;
@@ -69,6 +70,7 @@ import javax.swing.JFrame;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector3fc;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL33C.*;
 import org.lwjgl.opengl.GL42C;
@@ -178,13 +180,13 @@ public class Game {
 
     private final List<PhysicsRigidBody> spheres = new ArrayList<>();
     private final Scene.DirectionalLight sun = new Scene.DirectionalLight();
-    private final SphereCollisionShape sphereShape = new SphereCollisionShape(0.25f / 2f);
+    private final SphereCollisionShape sphereShape = new SphereCollisionShape(0.35f / 2f);
 
     private final Geometry monkeyGeometry = new Geometry(Geometries.MONKEY);
 
-    private final PlayerController player = new PlayerController();
+    private final DynamicPlayerController player = new DynamicPlayerController();
     private boolean playerActive = false;
-
+    
     private Game() {
 
     }
@@ -226,7 +228,8 @@ public class Game {
         
         resetPlayer();
         
-        this.monkeyGeometry.setModel(new Matrix4f().translate(0, 30, 0).scale(20f));
+        this.monkeyGeometry.setModel(new Matrix4f().translate(0, 7, 0));
+        //this.monkeyGeometry.setModel(new Matrix4f().translate(0, 30, 0).scale(20f));
         
         camera.setPosition(1f, 3f, -5f);
         camera.setUBO(CameraUBO.create(UBOBindingPoints.PLAYER_CAMERA));
@@ -369,7 +372,7 @@ public class Game {
         GeometryProgram.INSTANCE.setBakedLightGroupIntensity(1, this.sunIntensity);
 
         if (this.playerActive) {
-            this.player.updateMovement(this.camera.getFront(), this.camera.getRight(), this.physicsSpace.getAccuracy());
+            this.player.updateMovement(this.camera.getFront(), this.camera.getRight());
 
             camera.setPosition(
                     this.player.getEyePosition().x(),
@@ -378,7 +381,7 @@ public class Game {
             );
         }
 
-        if (this.player.getPosition().y() < -10f) {
+        if (this.player.getCharacterController().getPosition().y() < -10f) {
             resetPlayer();
         }
 
@@ -461,7 +464,7 @@ public class Game {
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D_ARRAY, Textures.EMPTY_LIGHTMAP);
             program.setModel(new Matrix4f()
-                    .translate(this.player.getPosition())
+                    .translate(this.player.getCharacterController().getPosition())
             );
             MeshData data;
             if (this.player.getCharacterController().isCrouched()) {
@@ -492,7 +495,7 @@ public class Game {
                 program.setSunDiffuse(this.sun.getDiffuse());
             }
 
-            model.translate(position).scale(0.25f);
+            model.translate(position).scale(this.sphereShape.getRadius() * 2f);
 
             com.jme3.math.Matrix3f rot = e.getPhysicsRotationMatrix(null);
             Matrix3f rotation = new Matrix3f();
@@ -678,7 +681,7 @@ public class Game {
     }
 
     public void resetPlayer() {
-        this.player.setPosition(0f, 5f, -5f);
+        this.player.getCharacterController().setPosition(0f, 5f, -5f);
     }
 
     public void mouseCursorMoved(double x, double y) {
@@ -758,16 +761,17 @@ public class Game {
             }
         }
         if (key == GLFW_KEY_E && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-            PhysicsRigidBody physicsSphere = new PhysicsRigidBody(sphereShape, 1f);
+            PhysicsRigidBody physicsSphere = new PhysicsRigidBody(sphereShape, 10f);
+            Vector3fc front = this.camera.getFront();
             physicsSphere.setPhysicsLocation(new com.jme3.math.Vector3f(
-                    (float) this.camera.getPosition().x(),
-                    (float) this.camera.getPosition().y(),
-                    (float) this.camera.getPosition().z()
+                    (float) this.camera.getPosition().x() + front.x(),
+                    (float) this.camera.getPosition().y() + front.y(),
+                    (float) this.camera.getPosition().z() + front.z()
             ));
             physicsSphere.applyCentralImpulse(new com.jme3.math.Vector3f(
-                    this.camera.getFront().x() * 2f,
-                    this.camera.getFront().y() * 2f,
-                    this.camera.getFront().z() * 2f
+                    front.x() * 5f,
+                    front.y() * 5f,
+                    front.z() * 5f
             ));
             physicsSphere.setFriction(1f);
             physicsSphere.setRollingFriction(0.02f);

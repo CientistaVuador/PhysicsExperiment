@@ -46,7 +46,7 @@ import org.joml.Vector3fc;
  */
 public class CharacterController implements PhysicsTickListener {
 
-    public static final float GROUND_CEILING_MARGIN = 0.05f;
+    public static final float GROUND_CEILING_MARGIN = 0.01f;
 
     private PhysicsSpace space = null;
     
@@ -86,7 +86,7 @@ public class CharacterController implements PhysicsTickListener {
     private float wX;
     private float wY;
     private float wZ;
-
+    
     private boolean changeCrouchState = false;
     private boolean noclipStateChanged = false;
     private final Vector3f groundNormal = new Vector3f(0f, 1f, 0f);
@@ -138,7 +138,7 @@ public class CharacterController implements PhysicsTickListener {
         this.rigidBody.setEnableSleep(false);
         this.rigidBody.setProtectGravity(true);
         this.rigidBody.setGravity(com.jme3.math.Vector3f.ZERO);
-
+        
         {
             float rad = radius * 0.98f;
             float hei = totalHeight * 0.98f;
@@ -382,7 +382,7 @@ public class CharacterController implements PhysicsTickListener {
             walkDir.normalize();
 
             Vector3fc normal = this.groundNormal;
-            Vector3f tangent = normal.cross(walkDir.negate(), this.vectorsJomlStack[stack++]).normalize();
+            Vector3f tangent = walkDir.cross(normal, this.vectorsJomlStack[stack++]).normalize();
             Vector3f bitangent = normal.cross(tangent, this.vectorsJomlStack[stack++]).normalize();
 
             bitangent.mul(walkSpeed);
@@ -396,7 +396,8 @@ public class CharacterController implements PhysicsTickListener {
     private void setCharacterSpeed() {
         int stack = 0;
 
-        com.jme3.math.Vector3f speed = this.vectorsStack[stack++].set(this.wX,
+        com.jme3.math.Vector3f speed = this.vectorsStack[stack++].set(
+                this.wX,
                 this.wY + this.fallSpeed + this.jumpSpeed,
                 this.wZ
         );
@@ -418,11 +419,11 @@ public class CharacterController implements PhysicsTickListener {
             this.rigidBody.setLinearVelocity(speed);
         }
     }
-
+    
     @Override
     public void prePhysicsTick(PhysicsSpace space, float timeStep) {
         Vector3fc position = getPosition();
-
+        
         updateCrouchState();
         updateGhostsPositions(position);
         updateGroundNormal(position);
