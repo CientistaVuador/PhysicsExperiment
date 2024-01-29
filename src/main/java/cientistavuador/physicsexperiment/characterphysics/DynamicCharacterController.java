@@ -46,6 +46,9 @@ import org.joml.Vector3fc;
  */
 public class DynamicCharacterController implements PhysicsTickListener {
 
+    public static final float GROUND_TEST_OFFSET = 0.1f;
+    public static final float GRAVITY_CUTOFF_TIME = 0.25f;
+
     //physics space
     private PhysicsSpace space = null;
 
@@ -60,6 +63,8 @@ public class DynamicCharacterController implements PhysicsTickListener {
 
     private final PhysicsRigidBody rigidBody;
 
+    private final PhysicsGhostObject groundTest;
+
     //character state
     private boolean noclipEnabled = false;
     private boolean noclipStateChanged = false;
@@ -68,17 +73,37 @@ public class DynamicCharacterController implements PhysicsTickListener {
     private boolean crouchStateChanged = false;
 
     private boolean onGround = false;
+    private final Vector3f groundNormal = new Vector3f();
+    private final Vector3f groundOrientedWalkDirection = new Vector3f();
 
     //character movement state
     private float walkDirectionX = 0f;
     private float walkDirectionZ = 0f;
-
+    private float walkDirectionSpeed = 0f;
+    private float movementHardness = 8f;
+    private float slopeThreshold = 0.75f;
+    private float friction = 4f;
     private float nextJumpImpulse = 0f;
 
-    private float walkSpeed = 5f;
-    private float walkImpulseFactor = 10f;
+    private float appliedWalkSpeedX = 0f;
+    private float appliedWalkSpeedY = 0f;
+    private float appliedWalkSpeedZ = 0f;
+
+    private float lastSpeedX = 0f;
+    private float lastSpeedY = 0f;
+    private float lastSpeedZ = 0f;
+
+    private float walkSpeedX = 0f;
+    private float walkSpeedY = 0f;
+    private float walkSpeedZ = 0f;
+
+    private float groundTime = 0f;
 
     //recycled objects
+    private final com.jme3.math.Vector3f speedApply = new com.jme3.math.Vector3f();
+    private final com.jme3.math.Vector3f speedGetJme = new com.jme3.math.Vector3f();
+    private final Vector3f speedGet = new Vector3f();
+
     private final com.jme3.math.Vector3f positionStore = new com.jme3.math.Vector3f();
     private final Vector3f jomlPositionStore = new Vector3f();
 
@@ -114,10 +139,20 @@ public class DynamicCharacterController implements PhysicsTickListener {
         }
 
         this.rigidBody = new PhysicsRigidBody(this.collisionShape, mass);
+        float r = this.collisionShape.maxRadius();
+        this.rigidBody.setCcdSweptSphereRadius(r);
+        this.rigidBody.setCcdMotionThreshold(r);
         this.rigidBody.setAngularFactor(0f);
         this.rigidBody.setEnableSleep(false);
         this.rigidBody.setFriction(0f);
         this.rigidBody.setRestitution(0f);
+
+        {
+            SphereCollisionShape sphere = new SphereCollisionShape(radius * 0.95f);
+            CompoundCollisionShape compound = new CompoundCollisionShape(1);
+            compound.addChildShape(sphere, 0f, sphere.getRadius() - GROUND_TEST_OFFSET, 0f);
+            this.groundTest = new PhysicsGhostObject(compound);
+        }
     }
 
     public void addToPhysicsSpace(PhysicsSpace space) {
@@ -127,6 +162,7 @@ public class DynamicCharacterController implements PhysicsTickListener {
         this.space = space;
         this.space.addTickListener(this);
         this.space.addCollisionObject(this.rigidBody);
+        this.space.addCollisionObject(this.groundTest);
     }
 
     public void removeFromPhysicsSpace() {
@@ -135,6 +171,7 @@ public class DynamicCharacterController implements PhysicsTickListener {
         }
         this.space.removeTickListener(this);
         this.space.removeCollisionObject(this.rigidBody);
+        this.space.removeCollisionObject(this.groundTest);
         this.space = null;
     }
 
@@ -160,7 +197,7 @@ public class DynamicCharacterController implements PhysicsTickListener {
     public float getRadius() {
         return radius;
     }
-    
+
     public CollisionShape getCollisionShape() {
         return this.collisionShape;
     }
@@ -207,74 +244,271 @@ public class DynamicCharacterController implements PhysicsTickListener {
     }
 
     public boolean onGround() {
-        return true;
+        return this.onGround;
+    }
+
+    public Vector3fc getGroundNormal() {
+        return groundNormal;
+    }
+
+    public Vector3fc getGroundOrientedWalkDirection() {
+        return groundOrientedWalkDirection;
     }
 
     public float getWalkDirectionX() {
-        return walkDirectionX;
+        return walkDirectionX * this.walkDirectionSpeed;
     }
 
     public float getWalkDirectionZ() {
-        return walkDirectionZ;
+        return walkDirectionZ * this.walkDirectionSpeed;
     }
 
     public void setWalkDirection(float x, float z) {
-        if (x != 0f && z != 0f) {
-            float invlength = 1f / ((float) Math.sqrt((x * x) + (z * z)));
-            x *= invlength;
-            z *= invlength;
+        float length = ((float) Math.sqrt((x * x) + (z * z)));
+        if (length == 0f) {
+            this.walkDirectionSpeed = 0f;
+            this.walkDirectionX = 0f;
+            this.walkDirectionZ = 0f;
+        } else {
+            this.walkDirectionSpeed = length;
+            float inv = 1f / length;
+            this.walkDirectionX = x * inv;
+            this.walkDirectionZ = z * inv;
         }
-        this.walkDirectionX = x;
-        this.walkDirectionZ = z;
     }
 
-    public float getWalkSpeed() {
-        return walkSpeed;
+    public float getMovementHardness() {
+        return movementHardness;
     }
 
-    public void setWalkSpeed(float walkSpeed) {
-        this.walkSpeed = walkSpeed;
+    public void setMovementHardness(float movementHardness) {
+        this.movementHardness = movementHardness;
     }
 
-    public float getWalkImpulseFactor() {
-        return walkImpulseFactor;
+    public float getSlopeThreshold() {
+        return slopeThreshold;
     }
 
-    public void setWalkImpulseFactor(float walkImpulseFactor) {
-        this.walkImpulseFactor = walkImpulseFactor;
+    public void setSlopeThreshold(float slopeThreshold) {
+        this.slopeThreshold = slopeThreshold;
+    }
+
+    public float getFriction() {
+        return friction;
+    }
+
+    public void setFriction(float friction) {
+        this.friction = friction;
     }
 
     public void jump(float speed) {
-        this.nextJumpImpulse += speed * this.rigidBody.getMass();
+        this.nextJumpImpulse += speed;
+    }
+
+    private void setGhostPositions(Vector3fc position) {
+        int stack = 0;
+
+        this.groundTest.setPhysicsLocation(this.vectorsStack[stack++].set(
+                position.x(), position.y(), position.z()
+        ));
+    }
+
+    private void applySpeed(float x, float y, float z) {
+        float mass = this.rigidBody.getMass();
+        this.speedApply.set(x * mass, y * mass, z * mass);
+        this.rigidBody.applyCentralImpulse(this.speedApply);
+    }
+
+    private Vector3fc rigidBodySpeed() {
+        this.rigidBody.getLinearVelocity(this.speedGetJme);
+        this.speedGet.set(
+                this.speedGetJme.x,
+                this.speedGetJme.y,
+                this.speedGetJme.z
+        );
+        return this.speedGet;
+    }
+
+    private void applyJumpImpulse() {
+        if (this.nextJumpImpulse != 0f) {
+            applySpeed(0f, this.nextJumpImpulse, 0f);
+            this.nextJumpImpulse = 0f;
+        }
+    }
+
+    private void findGroundNormal(PhysicsSpace space, Vector3fc position) {
+        int stack = 0;
+
+        this.groundNormal.set(0f, 1f, 0f);
+        if (onGround()) {
+            List<PhysicsRayTestResult> results = space.rayTest(
+                    this.vectorsStack[stack++].set(
+                            position.x(), position.y(), position.z()
+                    ),
+                    this.vectorsStack[stack++].set(
+                            position.x(), position.y() - 1f, position.z()
+                    )
+            );
+            for (PhysicsRayTestResult e : results) {
+                if (e == null || e.getCollisionObject().equals(this.rigidBody) || e.getCollisionObject() instanceof PhysicsGhostObject) {
+                    continue;
+                }
+                com.jme3.math.Vector3f n = e.getHitNormalLocal(this.vectorsStack[stack++]);
+                this.groundNormal.set(
+                        n.x,
+                        n.y,
+                        n.z
+                );
+                break;
+            }
+            if (this.groundNormal.dot(0f, 1f, 0f) < this.slopeThreshold) {
+                this.groundNormal.set(0f, 1f, 0f);
+            }
+        }
+    }
+
+    private void calculateGroundOrientedDirection() {
+        int jomlStack = 0;
+
+        this.groundOrientedWalkDirection.set(0f, 0f, 0f);
+        if (this.walkDirectionX != 0f && this.walkDirectionZ != 0f) {
+            Vector3f walkDir = this.vectorsJomlStack[jomlStack++]
+                    .set(this.walkDirectionX, 0f, this.walkDirectionZ);
+
+            Vector3fc normal = this.groundNormal;
+            Vector3f tangent = walkDir.cross(normal, this.vectorsJomlStack[jomlStack++]).normalize();
+            Vector3f bitangent = normal.cross(tangent, this.vectorsJomlStack[jomlStack++]).normalize();
+
+            this.groundOrientedWalkDirection.set(bitangent);
+        }
+    }
+
+    private void applyWalkSpeed(float timeStep) {
+        float targetSpeedX = this.groundOrientedWalkDirection.x() * this.walkDirectionSpeed;
+        float targetSpeedY = this.groundOrientedWalkDirection.y() * this.walkDirectionSpeed;
+        float targetSpeedZ = this.groundOrientedWalkDirection.z() * this.walkDirectionSpeed;
+
+        float deltaSpeedX = targetSpeedX - this.walkSpeedX;
+        float deltaSpeedY = targetSpeedY - this.walkSpeedY;
+        float deltaSpeedZ = targetSpeedZ - this.walkSpeedZ;
+        deltaSpeedX *= timeStep * this.movementHardness;
+        deltaSpeedY *= timeStep * this.movementHardness;
+        deltaSpeedZ *= timeStep * this.movementHardness;
+
+        this.appliedWalkSpeedX = deltaSpeedX;
+        this.appliedWalkSpeedY = deltaSpeedY;
+        this.appliedWalkSpeedZ = deltaSpeedZ;
+
+        applySpeed(deltaSpeedX, deltaSpeedY, deltaSpeedZ);
+
+        Vector3fc speed = rigidBodySpeed();
+        this.lastSpeedX = speed.x();
+        this.lastSpeedY = speed.y();
+        this.lastSpeedZ = speed.z();
+    }
+
+    private void removeGravityIfNeeded(float timeStep) {
+        if (onGround()) {
+            this.groundTime += timeStep;
+            if (this.groundTime > GRAVITY_CUTOFF_TIME) {
+                this.rigidBody.clearForces();
+            }
+        } else {
+            this.groundTime = 0f;
+        }
     }
 
     @Override
     public void prePhysicsTick(PhysicsSpace space, float timeStep) {
-        int stack = 0;
+        Vector3fc position = getPosition();
 
-        if (this.nextJumpImpulse != 0f) {
-            this.rigidBody.applyCentralImpulse(this.vectorsStack[stack++].set(
-                    0f, this.nextJumpImpulse, 0f
-            ));
-            this.nextJumpImpulse = 0f;
+        setGhostPositions(position);
+        findGroundNormal(space, position);
+        calculateGroundOrientedDirection();
+
+        applyJumpImpulse();
+        applyWalkSpeed(timeStep);
+
+        removeGravityIfNeeded(timeStep);
+    }
+
+    private boolean checkGhostCollision(PhysicsSpace space, PhysicsGhostObject p) {
+        boolean result = false;
+        for (PhysicsCollisionObject o : p.getOverlappingObjects()) {
+            if (o == null || o.equals(this.rigidBody) || o instanceof PhysicsGhostObject) {
+                continue;
+            }
+            result = (space.pairTest(p, o, null) != 0);
+            if (result) {
+                break;
+            }
         }
-        
-        if (this.walkDirectionX != 0f && this.walkDirectionZ != 0f) {
-            float mass = this.rigidBody.getMass();
-            
-            float impulseX = this.walkDirectionX * mass * this.walkImpulseFactor * timeStep;
-            float impulseY = 0f;
-            float impulseZ = this.walkDirectionZ * mass * this.walkImpulseFactor * timeStep;
-            
-            this.rigidBody.applyCentralImpulse(this.vectorsStack[stack++].set(
-                    impulseX, impulseY, impulseZ
-            ));
+        return result;
+    }
+
+    private float clamp(float speed, float max) {
+        if (Math.signum(speed) != Math.signum(max)) {
+            speed = 0f;
+        } else if (Math.abs(speed) > Math.abs(max)) {
+            speed = max;
         }
+        return speed;
+    }
+
+    private void collectWalkSpeedResults() {
+        Vector3fc speed = rigidBodySpeed();
+
+        float dX = this.lastSpeedX - speed.x();
+        float dY = this.lastSpeedY - speed.y();
+        float dZ = this.lastSpeedZ - speed.z();
+
+        float appliedDeltaX = this.appliedWalkSpeedX - dX;
+        float appliedDeltaY = this.appliedWalkSpeedY - dY;
+        float appliedDeltaZ = this.appliedWalkSpeedZ - dZ;
+
+        appliedDeltaX = clamp(appliedDeltaX, this.appliedWalkSpeedX);
+        appliedDeltaY = clamp(appliedDeltaY, this.appliedWalkSpeedY);
+        appliedDeltaZ = clamp(appliedDeltaZ, this.appliedWalkSpeedZ);
+
+        this.walkSpeedX += appliedDeltaX;
+        this.walkSpeedY += appliedDeltaY;
+        this.walkSpeedZ += appliedDeltaZ;
+
+        this.walkSpeedX = clamp(this.walkSpeedX, speed.x());
+        this.walkSpeedY = clamp(this.walkSpeedY, speed.y());
+        this.walkSpeedZ = clamp(this.walkSpeedZ, speed.z());
+    }
+
+    private void applyFriction(float timestep) {
+        Vector3fc speed = rigidBodySpeed();
+
+        float dX = speed.x() - this.walkSpeedX;
+        float dY = speed.y() - this.walkSpeedY;
+        float dZ = speed.z() - this.walkSpeedZ;
+
+        float fX = -dX * timestep * this.friction;
+        float fY = -dY * timestep * this.friction;
+        float fZ = -dZ * timestep * this.friction;
+
+        if (Math.signum(fX + dX) != Math.signum(dX)) {
+            fX = -dX;
+        }
+        if (Math.signum(fY + dY) != Math.signum(dY)) {
+            fY = -dY;
+        }
+        if (Math.signum(fZ + dZ) != Math.signum(dZ)) {
+            fZ = -dZ;
+        }
+
+        applySpeed(fX, fY, fZ);
     }
 
     @Override
     public void physicsTick(PhysicsSpace space, float timeStep) {
-        
+        this.onGround = checkGhostCollision(space, this.groundTest);
+
+        collectWalkSpeedResults();
+        applyFriction(timeStep);
     }
 
 }
