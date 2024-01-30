@@ -99,14 +99,7 @@ public class DynamicPlayerController {
     }
 
     public void jump() {
-        if (this.characterController.isNoclipEnabled() || !this.characterController.onGround()) {
-            return;
-        }
-        if (this.characterController.isCrouched()) {
-            this.characterController.jump(CROUCH_JUMP_SPEED);
-        } else {
-            this.characterController.jump(JUMP_SPEED * 1.25f);
-        }
+        this.characterController.checkedJump(JUMP_SPEED * 5f, CROUCH_JUMP_SPEED);
     }
 
     public MeshData getCollisionMeshData() {
@@ -218,14 +211,6 @@ public class DynamicPlayerController {
                     this.walkDirectionX * WALK_SPEED,
                     this.walkDirectionZ * WALK_SPEED
             );
-            
-            if (this.characterController.onGround()) {
-                this.characterController.setMovementHardness(10f);
-                this.characterController.setFriction(8f);
-            } else {
-                this.characterController.setMovementHardness(1f);
-                this.characterController.setFriction(0.5f);
-            }
         } else {
             this.walkDirectionX = 0f;
             this.walkDirectionZ = 0f;

@@ -254,6 +254,8 @@ public class Game {
         loadLightmap(this.scene.getGeometries().get(3), "red.lightmap");
         this.geometryLightmaps.clear();
         
+        
+        
         this.scene.setIndirectLightingEnabled(true);
         this.scene.setDirectLightingEnabled(true);
         this.scene.setShadowsEnabled(true);
