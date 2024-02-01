@@ -58,7 +58,7 @@ public class DynamicPlayerController {
     public static final float WALK_SPEED = 4.5f;
     public static final float CROUCH_SPEED = 1.75f;
 
-    public static final float JUMP_SPEED = 6f;
+    public static final float JUMP_SPEED = 8f;
     public static final float CROUCH_JUMP_SPEED = 4f;
 
     public static final float OUT_OF_GROUND_SPEED_FACTOR = 0.25f;
@@ -99,7 +99,7 @@ public class DynamicPlayerController {
     }
 
     public void jump() {
-        this.characterController.checkedJump(JUMP_SPEED * 5f, CROUCH_JUMP_SPEED);
+        this.characterController.checkedJump(JUMP_SPEED, CROUCH_JUMP_SPEED);
     }
 
     public MeshData getCollisionMeshData() {
