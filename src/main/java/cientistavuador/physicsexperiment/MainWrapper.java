@@ -26,14 +26,20 @@
  */
 package cientistavuador.physicsexperiment;
 
-import cientistavuador.physicsexperiment.natives.NativesExtractor;
+import cientistavuador.physicsexperiment.natives.Natives;
 import cientistavuador.physicsexperiment.sound.SoundSystem;
 import com.formdev.flatlaf.FlatDarkLaf;
+import com.jme3.bullet.objects.PhysicsRigidBody;
+import com.jme3.system.NativeLibraryLoader;
 import java.awt.Toolkit;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.UUID;
+import java.util.logging.Level;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import static org.lwjgl.glfw.GLFW.glfwTerminate;
@@ -47,7 +53,9 @@ public class MainWrapper {
 
     static {
         Locale.setDefault(Locale.US);
-        
+
+        System.out.println(UUID.randomUUID().toString());
+
         System.out.println("  /$$$$$$  /$$        /$$$$$$  /$$");
         System.out.println(" /$$__  $$| $$       /$$__  $$| $$");
         System.out.println("| $$  \\ $$| $$      | $$  \\ $$| $$");
@@ -56,19 +64,36 @@ public class MainWrapper {
         System.out.println("| $$  | $$| $$      | $$  | $$    ");
         System.out.println("|  $$$$$$/| $$$$$$$$| $$  | $$ /$$");
         System.out.println(" \\______/ |________/|__/  |__/|__/");
-        
+
         FlatDarkLaf.setup();
 
         String osName = System.getProperty("os.name");
         System.out.println("Running on " + osName);
 
-        if (osName.contains("nix") || osName.contains("nux") || osName.contains("aix")) {
-            NativesExtractor.extractLinux();
-        } else if (osName.contains("mac")) {
-            NativesExtractor.extractMacOS();
+        try {
+            if (osName.contains("nix") || osName.contains("nux") || osName.contains("aix")) {
+                org.lwjgl.system.Configuration.LIBRARY_PATH.set(
+                        Natives.extract("natives_linux.zip", "linux")
+                                .toAbsolutePath()
+                                .toString()
+                );
+            } else if (osName.contains("mac")) {
+                org.lwjgl.system.Configuration.LIBRARY_PATH.set(
+                        Natives.extract("natives_macos.zip", "macos")
+                                .toAbsolutePath()
+                                .toString()
+                );
+            }
+
+            PhysicsRigidBody.logger2.setLevel(Level.WARNING);
+            NativeLibraryLoader.loadLibbulletjme(
+                    true,
+                    Natives.extract("natives_bullet.zip", "bullet").toFile(),
+                    "Release", "Sp"
+            );
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
         }
-        
-        NativesExtractor.extractBulletNatives();
     }
 
     /**
@@ -79,21 +104,21 @@ public class MainWrapper {
             Main.main(args);
         } catch (Throwable e) {
             e.printStackTrace(System.out);
-            
+
             Toolkit.getDefaultToolkit().beep();
-            
+
             JFrame dummyFrame = new JFrame("dummy frame");
             dummyFrame.setLocationRelativeTo(null);
             dummyFrame.setVisible(true);
             dummyFrame.toFront();
             dummyFrame.setVisible(false);
-            
+
             ByteArrayOutputStream byteArray = new ByteArrayOutputStream();
             PrintStream messageStream = new PrintStream(byteArray);
             e.printStackTrace(messageStream);
             messageStream.flush();
             String message = new String(byteArray.toByteArray(), StandardCharsets.UTF_8);
-            
+
             JOptionPane.showMessageDialog(
                     dummyFrame,
                     message,

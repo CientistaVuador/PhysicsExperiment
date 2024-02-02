@@ -35,9 +35,6 @@ import cientistavuador.physicsexperiment.ubo.UBOBindingPoints;
 import cientistavuador.physicsexperiment.util.ALSourceUtil;
 import cientistavuador.physicsexperiment.util.Aab;
 import cientistavuador.physicsexperiment.util.Cursors;
-import com.jme3.bullet.objects.PhysicsRigidBody;
-import com.jme3.system.NativeLibraryLoader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -47,7 +44,6 @@ import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.logging.Level;
 import org.joml.Vector3f;
 import org.lwjgl.PointerBuffer;
 import static org.lwjgl.glfw.GLFW.*;
@@ -70,6 +66,8 @@ import static org.lwjgl.system.MemoryUtil.*;
  */
 public class Main {
 
+    public static final String APPLICATION_NAME = "Physics Experiment";
+    
     public static final boolean USE_MSAA = false;
     public static final boolean DEBUG_ENABLED = true;
     public static final boolean SPIKE_LAG_WARNINGS = false;
@@ -80,10 +78,6 @@ public class Main {
     public static final boolean COMPATIBLE_MODE;
 
     static {
-        org.lwjgl.system.Configuration.LIBRARY_PATH.set("natives");
-        PhysicsRigidBody.logger2.setLevel(Level.WARNING);
-        NativeLibraryLoader.loadLibbulletjme(true, new File("natives"), "Release", "Sp");
-        
         if (!glfwInit()) {
             throw new IllegalStateException("Could not initialize GLFW!");
         }
@@ -613,7 +607,7 @@ public class Main {
 
             Main.NUMBER_OF_DRAWCALLS = 0;
             Main.NUMBER_OF_VERTICES = 0;
-            Main.WINDOW_TITLE = "Physics Experiment - FPS: " + Main.FPS;
+            Main.WINDOW_TITLE = Main.APPLICATION_NAME+" - FPS: " + Main.FPS;
             
             if (SPIKE_LAG_WARNINGS) {
                 int tpfFps = (int) (1.0 / Main.TPF);
