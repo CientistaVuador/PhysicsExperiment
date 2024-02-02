@@ -57,8 +57,8 @@ public class DynamicCharacterController implements PhysicsTickListener {
     public static final float GROUND_NORMAL_RAY_OFFSET = 0.2f;
     public static final float GRAVITY_CUTOFF_TIME = 0.25f;
     
-    public static final float SLOPE_OFFSET = 0.5f;
-    public static final float SLOPE_DETECTION = 0.5f;
+    public static final float SLOPE_OFFSET = 0.075f;
+    public static final float SLOPE_DETECTION = 0.3f;
 
     private static final Vector3f[] GROUND_NORMAL_OFFSETS = new Vector3f[]{
         new Vector3f(0f, 0f, 0f),
@@ -797,7 +797,54 @@ public class DynamicCharacterController implements PhysicsTickListener {
     }
     
     private void findSlopeHeight(PhysicsSpace space) {
+        float dirX = this.walkX;
+        float dirZ = this.walkZ;
+        float length = (float) Math.sqrt((dirX * dirX) + (dirZ * dirZ));
+        if (length < EPSILON) {
+            return;
+        }
+        float invlength = 1f / length;
+        dirX *= invlength;
+        dirZ *= invlength;
         
+        Vector3fc position = getPosition();
+        
+        Transform start = new Transform();
+        start.setTranslation(new com.jme3.math.Vector3f(
+                position.x() + (dirX * SLOPE_OFFSET),
+                position.y() + (this.totalHeight * 0.5f) + SLOPE_DETECTION,
+                position.z() + (dirZ * SLOPE_OFFSET)
+        ));
+        
+        Transform end = new Transform();
+        end.setTranslation(new com.jme3.math.Vector3f(
+                position.x() + (dirX * SLOPE_OFFSET),
+                position.y() + (this.totalHeight * 0.5f) - SLOPE_DETECTION,
+                position.z() + (dirZ * SLOPE_OFFSET)
+        ));
+        
+        List<PhysicsSweepTestResult> results = space.sweepTest(
+                this.rawCollisionShape,
+                start, end,
+                new ArrayList<>(),
+                0.0f
+        );
+        
+        results.sort((o1, o2) -> {
+            return Float.compare(o1.getHitFraction(), o2.getHitFraction());
+        });
+        
+        for (PhysicsSweepTestResult e:results) {
+            if (e.getCollisionObject() == null || e.getCollisionObject().equals(this.rigidBody) || e.getCollisionObject() instanceof PhysicsGhostObject) {
+                continue;
+            }
+            com.jme3.math.Vector3f st = start.getTranslation();
+            com.jme3.math.Vector3f en = end.getTranslation();
+            float y = (st.y * (1f - e.getHitFraction())) + (en.y * e.getHitFraction());
+            y -= this.totalHeight * 0.5f;
+            setPosition(position.x(), y, position.z());
+            break;
+        }
     }
     
     @Override

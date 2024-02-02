@@ -36,7 +36,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- *
+ * todo: update the natives extractor to check if the files are different
  * @author Cien
  */
 public class NativesExtractor {
