@@ -328,7 +328,7 @@ public class MeshResources {
         }
 
         if (Float.isFinite(this.configuration.getEpsilonDistance()) && this.configuration.getEpsilonDistance() > 0f) {
-            MeshUtils.epsilonDistance(
+            MeshUtils.conservativeMergeByDistanceXYZ(
                     newVertices,
                     MeshData.SIZE,
                     MeshData.XYZ_OFFSET,

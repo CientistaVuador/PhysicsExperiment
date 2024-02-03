@@ -255,44 +255,52 @@ public class MeshUtils {
         calculateTriangleNormal(ax, ay, az, bx, by, bz, cx, cy, cz, outNormal);
     }
 
-    public static int epsilonDistance(float[] vertices, int vertexSize, int xyzOffset, float epsilonDistance) {
+    private static float valuesDistance(float[] values) {
+        if (values.length == 1) {
+            return Math.abs(values[0]);
+        }
+        float totalSum = 0f;
+        for (int i = 0; i < values.length; i++) {
+            totalSum += (values[i] * values[i]);
+        }
+        return (float) Math.sqrt(totalSum);
+    }
+    
+    public static int conservativeMergeByDistance(float[] vertices, int vertexSize, int offset, int size, float distance) {
         int altered = 0;
         boolean[] processed = new boolean[vertices.length / vertexSize];
-
+        
+        float[] current = new float[size];
+        float[] other = new float[size];
+        
         for (int v = 0; v < vertices.length; v += vertexSize) {
             if (processed[v / vertexSize]) {
                 continue;
             }
             processed[v / vertexSize] = true;
-
-            float x = vertices[v + xyzOffset + 0];
-            float y = vertices[v + xyzOffset + 1];
-            float z = vertices[v + xyzOffset + 2];
-
+            
+            System.arraycopy(vertices, v + offset, current, 0, size);
+            
             for (int vOther = (v + vertexSize); vOther < vertices.length; vOther += vertexSize) {
                 if (processed[vOther / vertexSize]) {
                     continue;
                 }
-
-                float otherX = vertices[vOther + xyzOffset + 0];
-                float otherY = vertices[vOther + xyzOffset + 1];
-                float otherZ = vertices[vOther + xyzOffset + 2];
-
-                float dX = x - otherX;
-                float dY = y - otherY;
-                float dZ = z - otherZ;
-
-                float distance = (float) Math.sqrt((dX * dX) + (dY * dY) + (dZ * dZ));
-
-                if (distance == 0f) {
+                
+                System.arraycopy(vertices, vOther + offset, other, 0, size);
+                
+                for (int i = 0; i < other.length; i++) {
+                    other[i] = current[i] - other[i];
+                }
+                
+                float otherDistance = valuesDistance(other);
+                
+                if (otherDistance == 0f) {
                     processed[vOther / vertexSize] = true;
                     continue;
                 }
 
-                if (distance <= epsilonDistance) {
-                    vertices[vOther + xyzOffset + 0] = x;
-                    vertices[vOther + xyzOffset + 1] = y;
-                    vertices[vOther + xyzOffset + 2] = z;
+                if (otherDistance <= distance) {
+                    System.arraycopy(current, 0, vertices, vOther + offset, size);
                     processed[vOther / vertexSize] = true;
                     altered++;
                 }
@@ -301,7 +309,11 @@ public class MeshUtils {
 
         return altered;
     }
-
+    
+    public static int conservativeMergeByDistanceXYZ(float[] vertices, int vertexSize, int xyzOffset, float distance) {
+        return conservativeMergeByDistance(vertices, vertexSize, xyzOffset, 3, distance);
+    }
+    
     public static void vertexAO(float[] vertices, int vertexSize, int xyzOffset, int outAoOffset, float aoSize, int aoRays, float rayOffset) {
         VertexAO.vertexAO(vertices, vertexSize, xyzOffset, outAoOffset, aoSize, aoRays, rayOffset);
     }
@@ -345,7 +357,7 @@ public class MeshUtils {
             vertices[v2 + MeshData.N_XYZ_OFFSET + 2] = normal.z();
         }
         
-        MeshUtils.epsilonDistance(
+        MeshUtils.conservativeMergeByDistanceXYZ(
                 vertices, MeshData.SIZE, MeshData.XYZ_OFFSET,
                 0.0001f
         );

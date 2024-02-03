@@ -32,13 +32,10 @@ import com.jme3.bullet.collision.PhysicsCollisionObject;
 import com.jme3.bullet.collision.PhysicsRayTestResult;
 import com.jme3.bullet.collision.PhysicsSweepTestResult;
 import com.jme3.bullet.collision.shapes.BoxCollisionShape;
-import com.jme3.bullet.collision.shapes.CapsuleCollisionShape;
 import com.jme3.bullet.collision.shapes.CollisionShape;
 import com.jme3.bullet.collision.shapes.CompoundCollisionShape;
-import com.jme3.bullet.collision.shapes.SphereCollisionShape;
 import com.jme3.bullet.objects.PhysicsGhostObject;
 import com.jme3.bullet.objects.PhysicsRigidBody;
-import com.jme3.math.Quaternion;
 import com.jme3.math.Transform;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,23 +49,22 @@ import org.joml.Vector3fc;
 public class DynamicCharacterController implements PhysicsTickListener {
 
     public static final float EPSILON = 0.000001f;
-    
+
+    public static final float MAX_CLIMB_VERTICAL_VELOCITY = 0.1f;
+
     public static final float GROUND_TEST_OFFSET = 0.075f;
     public static final float GROUND_NORMAL_RAY_OFFSET = 0.2f;
     public static final float GRAVITY_CUTOFF_TIME = 0.25f;
-    
+
     public static final float SLOPE_OFFSET = 0.075f;
     public static final float SLOPE_DETECTION = 0.3f;
 
     private static final Vector3f[] GROUND_NORMAL_OFFSETS = new Vector3f[]{
         new Vector3f(0f, 0f, 0f),
-        
         new Vector3f(1f, 0f, 0f),
         new Vector3f(-1f, 0f, 0f),
-        
         new Vector3f(0f, 0f, 1f),
         new Vector3f(0f, 0f, -1f),
-        
         new Vector3f(1f, 0f, 1f).normalize(0.5f),
         new Vector3f(-1f, 0f, -1f).normalize(0.5f),
         new Vector3f(-1f, 0f, 1f).normalize(0.5f),
@@ -86,7 +82,7 @@ public class DynamicCharacterController implements PhysicsTickListener {
     //character collision
     private final BoxCollisionShape rawCollisionShape;
     private final BoxCollisionShape rawCrouchCollisionShape;
-    
+
     private final CollisionShape collisionShape;
     private final CollisionShape crouchCollisionShape;
 
@@ -125,38 +121,38 @@ public class DynamicCharacterController implements PhysicsTickListener {
     private float appliedWalkX = 0f;
     private float appliedWalkY = 0f;
     private float appliedWalkZ = 0f;
-    
+
     private float appliedJump = 0f;
-    
+
     private float appliedGravityX = 0f;
     private float appliedGravityY = 0f;
     private float appliedGravityZ = 0f;
-    
+
     //total applied velocities
     private float appliedTotalX = 0f;
     private float appliedTotalY = 0f;
     private float appliedTotalZ = 0f;
-    
+
     //velocity delta
     private float deltaX = 0f;
     private float deltaY = 0f;
     private float deltaZ = 0f;
-    
+
     //velocities
     private float walkX = 0f;
     private float walkY = 0f;
     private float walkZ = 0f;
-    
+
     private float jump = 0f;
-    
+
     private float gravityX = 0f;
     private float gravityY = 0f;
     private float gravityZ = 0f;
-    
+
     private float internalX = 0f;
     private float internalY = 0f;
     private float internalZ = 0f;
-    
+
     private float externalX = 0f;
     private float externalY = 0f;
     private float externalZ = 0f;
@@ -167,7 +163,7 @@ public class DynamicCharacterController implements PhysicsTickListener {
 
     //climb
     private float slopeHeight = 0f;
-    
+
     //recycled objects
     private final com.jme3.math.Vector3f velocityApply = new com.jme3.math.Vector3f();
 
@@ -202,7 +198,7 @@ public class DynamicCharacterController implements PhysicsTickListener {
         this.totalHeight = totalHeight;
         this.crouchTotalHeight = crouchTotalHeight;
         this.radius = radius;
-        
+
         {
             BoxCollisionShape box = new BoxCollisionShape(radius, totalHeight * 0.5f, radius);
             CompoundCollisionShape compound = new CompoundCollisionShape(1);
@@ -210,7 +206,7 @@ public class DynamicCharacterController implements PhysicsTickListener {
             this.collisionShape = compound;
             this.rawCollisionShape = box;
         }
-        
+
         {
             BoxCollisionShape box = new BoxCollisionShape(radius, crouchTotalHeight * 0.5f, radius);
             CompoundCollisionShape compound = new CompoundCollisionShape(1);
@@ -218,7 +214,7 @@ public class DynamicCharacterController implements PhysicsTickListener {
             this.crouchCollisionShape = compound;
             this.rawCrouchCollisionShape = box;
         }
-        
+
         this.rigidBody = new PhysicsRigidBody(this.collisionShape, mass);
         float r = this.collisionShape.maxRadius();
         this.rigidBody.setCcdSweptSphereRadius(r);
@@ -410,11 +406,11 @@ public class DynamicCharacterController implements PhysicsTickListener {
     public void jump(float speed) {
         this.nextJumpImpulse += speed;
     }
-    
+
     public boolean isJumping() {
         return this.jump != 0f;
     }
-    
+
     public void checkedJump(float speed, float crouchSpeed) {
         if (!onGround() || isJumping() || isNoclipEnabled()) {
             return;
@@ -425,7 +421,7 @@ public class DynamicCharacterController implements PhysicsTickListener {
             jump(speed);
         }
     }
-    
+
     private void setGhostPositions(Vector3fc position) {
         int stack = 0;
 
@@ -549,7 +545,7 @@ public class DynamicCharacterController implements PhysicsTickListener {
             this.internalGravityMultiplier = 0f;
         }
     }
-    
+
     private void applyWalk(float timeStep) {
         float movementRoughness = (onGround() ? getGroundMovementRoughness() : getAirMovementRoughness());
 
@@ -560,11 +556,11 @@ public class DynamicCharacterController implements PhysicsTickListener {
         float dX = targetX - this.walkX;
         float dY = targetY - this.walkY;
         float dZ = targetZ - this.walkZ;
-        
+
         float dXStep = dX * timeStep * movementRoughness;
         float dYStep = dY * timeStep * movementRoughness;
         float dZStep = dZ * timeStep * movementRoughness;
-        
+
         if (Math.abs(dXStep) > Math.abs(dX) || Math.abs(dX) < EPSILON) {
             dXStep = dX;
         }
@@ -574,82 +570,82 @@ public class DynamicCharacterController implements PhysicsTickListener {
         if (Math.abs(dZStep) > Math.abs(dZ) || Math.abs(dZ) < EPSILON) {
             dZStep = dZ;
         }
-        
+
         this.appliedWalkX = dXStep;
         this.appliedWalkY = dYStep;
         this.appliedWalkZ = dZStep;
-        
+
         applyVelocity(dXStep, dYStep, dZStep);
     }
-    
+
     private void applyJump() {
         applyVelocity(0f, this.nextJumpImpulse, 0f);
         this.appliedJump = this.nextJumpImpulse;
         this.nextJumpImpulse = 0f;
     }
-    
+
     private void applyGravity(PhysicsSpace space, float timeStep) {
         Vector3fc gravity = spaceGravity(space);
-        
+
         float vX = gravity.x() * timeStep * this.internalGravityMultiplier;
         float vY = gravity.y() * timeStep * this.internalGravityMultiplier;
         float vZ = gravity.z() * timeStep * this.internalGravityMultiplier;
-        
+
         applyVelocity(vX, vY, vZ);
-        
+
         this.appliedGravityX = vX;
         this.appliedGravityY = vY;
         this.appliedGravityZ = vZ;
     }
-    
+
     private float normalize(float value, float totalSum) {
         if (Math.abs(totalSum) < EPSILON) {
             return 0f;
         }
         return value /= totalSum;
     }
-    
+
     private void calculateTotalVelocities() {
         this.appliedTotalX = this.appliedWalkX + this.appliedGravityX;
         this.appliedTotalY = this.appliedWalkY + this.appliedGravityY + this.appliedJump;
         this.appliedTotalZ = this.appliedWalkZ + this.appliedGravityZ;
-        
+
         this.appliedWalkX = normalize(this.appliedWalkX, this.appliedTotalX);
         this.appliedWalkY = normalize(this.appliedWalkY, this.appliedTotalY);
         this.appliedWalkZ = normalize(this.appliedWalkZ, this.appliedTotalZ);
-        
+
         this.appliedJump = normalize(this.appliedJump, this.appliedTotalY);
-        
+
         this.appliedGravityX = normalize(this.appliedGravityX, this.appliedTotalX);
         this.appliedGravityY = normalize(this.appliedGravityY, this.appliedTotalY);
         this.appliedGravityZ = normalize(this.appliedGravityZ, this.appliedTotalZ);
-        
+
         this.appliedWalkX = Math.max(this.appliedWalkX, 0f);
         this.appliedWalkY = Math.max(this.appliedWalkY, 0f);
         this.appliedWalkZ = Math.max(this.appliedWalkZ, 0f);
-        
+
         this.appliedJump = Math.max(this.appliedJump, 0f);
-        
+
         this.appliedGravityX = Math.max(this.appliedGravityX, 0f);
         this.appliedGravityY = Math.max(this.appliedGravityY, 0f);
         this.appliedGravityZ = Math.max(this.appliedGravityZ, 0f);
-        
+
         float sumX = this.appliedWalkX + this.appliedGravityX;
         float sumY = this.appliedWalkY + this.appliedJump + this.appliedGravityY;
         float sumZ = this.appliedWalkZ + this.appliedGravityZ;
-        
+
         this.appliedWalkX = normalize(this.appliedWalkX, sumX);
         this.appliedWalkY = normalize(this.appliedWalkY, sumY);
         this.appliedWalkZ = normalize(this.appliedWalkZ, sumZ);
-        
+
         this.appliedJump = normalize(this.appliedJump, sumY);
-        
+
         this.appliedGravityX = normalize(this.appliedGravityX, sumX);
         this.appliedGravityY = normalize(this.appliedGravityY, sumY);
         this.appliedGravityZ = normalize(this.appliedGravityZ, sumZ);
-        
+
         Vector3fc velocity = rigidBodyVelocity();
-        
+
         this.deltaX = velocity.x();
         this.deltaY = velocity.y();
         this.deltaZ = velocity.z();
@@ -664,11 +660,11 @@ public class DynamicCharacterController implements PhysicsTickListener {
         calculateGroundOrientedDirection();
 
         disableGravityIfNeeded(timeStep);
-        
+
         applyWalk(timeStep);
         applyJump();
         applyGravity(space, timeStep);
-        
+
         calculateTotalVelocities();
     }
 
@@ -700,74 +696,74 @@ public class DynamicCharacterController implements PhysicsTickListener {
         this.deltaX -= velocity.x();
         this.deltaY -= velocity.y();
         this.deltaZ -= velocity.z();
-        
+
         this.appliedTotalX = clamp(this.appliedTotalX + this.deltaX, this.appliedTotalX);
         this.appliedTotalY = clamp(this.appliedTotalY + this.deltaY, this.appliedTotalY);
         this.appliedTotalZ = clamp(this.appliedTotalZ + this.deltaZ, this.appliedTotalZ);
-        
+
         this.appliedWalkX *= this.appliedTotalX;
         this.appliedWalkY *= this.appliedTotalY;
         this.appliedWalkZ *= this.appliedTotalZ;
-        
+
         this.appliedJump *= this.appliedTotalY;
-        
+
         this.appliedGravityX *= this.appliedTotalX;
         this.appliedGravityY *= this.appliedTotalY;
         this.appliedGravityZ *= this.appliedTotalZ;
-        
+
         this.walkX += this.appliedWalkX;
         this.walkY += this.appliedWalkY;
         this.walkZ += this.appliedWalkZ;
-        
+
         this.jump += this.appliedJump;
-        
+
         this.gravityX += this.appliedGravityX;
         this.gravityY += this.appliedGravityY;
         this.gravityZ += this.appliedGravityZ;
-        
+
         this.internalX = this.walkX + this.gravityX;
         this.internalY = this.walkY + this.jump + this.gravityY;
         this.internalZ = this.walkZ + this.gravityZ;
-        
+
         this.walkX = normalize(this.walkX, this.internalX);
         this.walkY = normalize(this.walkY, this.internalY);
         this.walkZ = normalize(this.walkZ, this.internalZ);
-        
+
         this.jump = normalize(this.jump, this.internalY);
-        
+
         this.gravityX = normalize(this.gravityX, this.internalX);
         this.gravityY = normalize(this.gravityY, this.internalY);
         this.gravityZ = normalize(this.gravityZ, this.internalZ);
-        
+
         this.walkX = Math.max(this.walkX, 0f);
         this.walkY = Math.max(this.walkY, 0f);
         this.walkZ = Math.max(this.walkZ, 0f);
-        
+
         this.jump = Math.max(this.jump, 0f);
-        
+
         this.gravityX = Math.max(this.gravityX, 0f);
         this.gravityY = Math.max(this.gravityY, 0f);
         this.gravityZ = Math.max(this.gravityZ, 0f);
-        
+
         this.internalX = clamp(this.internalX, velocity.x());
         this.internalY = clamp(this.internalY, velocity.y());
         this.internalZ = clamp(this.internalZ, velocity.z());
-        
+
         this.walkX *= this.internalX;
         this.walkY *= this.internalY;
         this.walkZ *= this.internalZ;
-        
+
         this.jump *= this.internalY;
-        
+
         this.gravityX *= this.internalX;
         this.gravityY *= this.internalY;
         this.gravityZ *= this.internalZ;
-        
+
         this.externalX = velocity.x() - this.internalX;
         this.externalY = velocity.y() - this.internalY;
         this.externalZ = velocity.z() - this.internalZ;
     }
-    
+
     private void applyFriction(float timestep) {
         float friction = (onGround() ? getGroundFriction() : getAirFriction());
 
@@ -795,66 +791,13 @@ public class DynamicCharacterController implements PhysicsTickListener {
         this.externalY += fY;
         this.externalZ += fZ;
     }
-    
-    private void findSlopeHeight(PhysicsSpace space) {
-        float dirX = this.walkX;
-        float dirZ = this.walkZ;
-        float length = (float) Math.sqrt((dirX * dirX) + (dirZ * dirZ));
-        if (length < EPSILON) {
-            return;
-        }
-        float invlength = 1f / length;
-        dirX *= invlength;
-        dirZ *= invlength;
-        
-        Vector3fc position = getPosition();
-        
-        Transform start = new Transform();
-        start.setTranslation(new com.jme3.math.Vector3f(
-                position.x() + (dirX * SLOPE_OFFSET),
-                position.y() + (this.totalHeight * 0.5f) + SLOPE_DETECTION,
-                position.z() + (dirZ * SLOPE_OFFSET)
-        ));
-        
-        Transform end = new Transform();
-        end.setTranslation(new com.jme3.math.Vector3f(
-                position.x() + (dirX * SLOPE_OFFSET),
-                position.y() + (this.totalHeight * 0.5f) - SLOPE_DETECTION,
-                position.z() + (dirZ * SLOPE_OFFSET)
-        ));
-        
-        List<PhysicsSweepTestResult> results = space.sweepTest(
-                this.rawCollisionShape,
-                start, end,
-                new ArrayList<>(),
-                0.0f
-        );
-        
-        results.sort((o1, o2) -> {
-            return Float.compare(o1.getHitFraction(), o2.getHitFraction());
-        });
-        
-        for (PhysicsSweepTestResult e:results) {
-            if (e.getCollisionObject() == null || e.getCollisionObject().equals(this.rigidBody) || e.getCollisionObject() instanceof PhysicsGhostObject) {
-                continue;
-            }
-            com.jme3.math.Vector3f st = start.getTranslation();
-            com.jme3.math.Vector3f en = end.getTranslation();
-            float y = (st.y * (1f - e.getHitFraction())) + (en.y * e.getHitFraction());
-            y -= this.totalHeight * 0.5f;
-            setPosition(position.x(), y, position.z());
-            break;
-        }
-    }
-    
+
     @Override
     public void physicsTick(PhysicsSpace space, float timeStep) {
         this.onGround = checkGhostCollision(space, this.groundTest);
-        
+
         collectAppliedVelocities();
         applyFriction(timeStep);
-        
-        findSlopeHeight(space);
     }
 
 }

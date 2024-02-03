@@ -48,13 +48,13 @@ public class Geometries {
     public static final MeshData CIENCOLA;
     public static final MeshData SPHERE;
     public static final MeshData MONKEY;
-    
+
     static {
         Map<String, MeshData> meshes = GeometriesLoader.load(
                 MeshConfiguration.lightmapped("garage.obj"),
                 MeshConfiguration.nothing("ciencola.obj")//,
-                //MeshConfiguration.nothing("sphere.obj"),
-                //MeshConfiguration.ambientOcclusion("monkey.obj")
+        //MeshConfiguration.nothing("sphere.obj"),
+        //MeshConfiguration.ambientOcclusion("monkey.obj", 8192)
         );
         MeshData bricks = meshes.get("garage.obj@bricks");
         MeshData concrete = meshes.get("garage.obj@concrete");
@@ -64,12 +64,12 @@ public class Geometries {
         concrete.setTextureHint(Textures.CONCRETE);
         grass.setTextureHint(Textures.GRASS);
         red.setTextureHint(Textures.RED);
-        GARAGE = new MeshData[] {concrete, grass, bricks, red};
-        
+        GARAGE = new MeshData[]{concrete, grass, bricks, red};
+
         MeshData ciencola = meshes.get("ciencola.obj");
         ciencola.setTextureHint(Textures.CIENCOLA);
         CIENCOLA = ciencola;
-        
+
         MeshData sphere;
         //sphere = meshes.get("sphere.obj");
         try {
@@ -83,7 +83,7 @@ public class Geometries {
             throw new UncheckedIOException(ex);
         }
         sphere.setTextureHint(Textures.RED);
-        
+
         MeshData monkey;
         //monkey = meshes.get("monkey.obj");
         try {
@@ -97,13 +97,13 @@ public class Geometries {
             throw new UncheckedIOException(ex);
         }
         monkey.setTextureHint(Textures.RED);
-        
+
         List<MeshData> toWrite = new ArrayList<>();
         //toWrite.add(monkey);
         //toWrite.add(sphere);
-        for (MeshData m:toWrite) {
+        for (MeshData m : toWrite) {
             try {
-                try (FileOutputStream out = new FileOutputStream(new File(m.getName()+".mesh"))) {
+                try (FileOutputStream out = new FileOutputStream(new File(m.getName() + ".mesh"))) {
                     MeshStore.encode(
                             m.getVertices(),
                             MeshData.SIZE,
@@ -115,13 +115,13 @@ public class Geometries {
                 throw new UncheckedIOException(e);
             }
         }
-        
+
         SPHERE = sphere;
         MONKEY = monkey;
     }
-    
+
     public static void init() {
-        
+
     }
 
     private Geometries() {

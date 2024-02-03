@@ -45,6 +45,8 @@ import org.joml.Vector3f;
  */
 public class VertexAO {
 
+    public static final float MERGE_DISTANCE = 0.001f;
+    
     private static final float EPSILON = 0.0001f;
 
     public static void vertexAO(float[] vertices, int vertexSize, int xyzOffset, int outAoOffset, float aoSize, int aoRays, float rayOffset) {
@@ -258,12 +260,19 @@ public class VertexAO {
             this.vertices[v.vertex + this.outAoOffset] = result;
         }
     }
+    
+    private void merge() {
+        MeshUtils.conservativeMergeByDistance(
+                this.vertices, this.vertexSize, this.outAoOffset, 1, MERGE_DISTANCE
+        );
+    }
 
     private void process() {
         try {
             createBVH();
             mapVertices();
             computeAO();
+            merge();
         } finally {
             this.service.shutdownNow();
         }

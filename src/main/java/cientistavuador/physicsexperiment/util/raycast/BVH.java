@@ -140,13 +140,9 @@ public class BVH implements Aab {
                 float closestMaxY = 0f;
                 float closestMaxZ = 0f;
 
-                for (int j = 0; j < currentLength; j++) {
+                for (int j = (i+1); j < currentLength; j++) {
                     BVH other = currentArray[j];
-
-                    if (j == i) {
-                        continue;
-                    }
-
+                    
                     if (other == null) {
                         continue;
                     }

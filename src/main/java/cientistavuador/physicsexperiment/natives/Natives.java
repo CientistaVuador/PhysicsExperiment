@@ -59,7 +59,7 @@ public class Natives {
                 Natives.class.getResourceAsStream(zipFile),
                 StandardCharsets.UTF_8
         );
-
+        
         this.folderPath = Paths.get(
                 System.getProperty("java.io.tmpdir"),
                 TEMP_FOLDER_NAME,
