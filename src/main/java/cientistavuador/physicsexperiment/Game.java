@@ -27,10 +27,11 @@
 package cientistavuador.physicsexperiment;
 
 import cientistavuador.physicsexperiment.camera.FreeCamera;
-import cientistavuador.physicsexperiment.characterphysics.DynamicPlayerController;
+import cientistavuador.physicsexperiment.characterphysics.PlayerController;
 import cientistavuador.physicsexperiment.debug.AabRender;
 import cientistavuador.physicsexperiment.debug.LineRender;
 import cientistavuador.physicsexperiment.geometry.Geometries;
+import cientistavuador.physicsexperiment.geometry.GeometriesLoader;
 import cientistavuador.physicsexperiment.geometry.Geometry;
 import cientistavuador.physicsexperiment.popups.BakePopup;
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
@@ -42,11 +43,16 @@ import cientistavuador.physicsexperiment.texture.Textures;
 import cientistavuador.physicsexperiment.ubo.CameraUBO;
 import cientistavuador.physicsexperiment.ubo.UBOBindingPoints;
 import cientistavuador.physicsexperiment.util.LightmapFile;
+import cientistavuador.physicsexperiment.util.MeshUtils;
 import cientistavuador.physicsexperiment.util.bakedlighting.BakedLighting;
 import cientistavuador.physicsexperiment.util.raycast.RayResult;
 import cientistavuador.physicsexperiment.util.bakedlighting.SamplingMode;
 import cientistavuador.physicsexperiment.util.bakedlighting.Scene;
 import com.jme3.bullet.PhysicsSpace;
+import com.jme3.bullet.collision.shapes.CollisionShape;
+import com.jme3.bullet.collision.shapes.CompoundCollisionShape;
+import com.jme3.bullet.collision.shapes.GImpactCollisionShape;
+import com.jme3.bullet.collision.shapes.HullCollisionShape;
 import com.jme3.bullet.collision.shapes.MeshCollisionShape;
 import com.jme3.bullet.collision.shapes.SphereCollisionShape;
 import com.jme3.bullet.collision.shapes.infos.IndexedMesh;
@@ -56,6 +62,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -72,6 +79,9 @@ import org.joml.Vector3fc;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL33C.*;
 import org.lwjgl.opengl.GL42C;
+import vhacd4.Vhacd4;
+import vhacd4.Vhacd4Hull;
+import vhacd4.Vhacd4Parameters;
 
 /**
  *
@@ -181,10 +191,40 @@ public class Game {
     private final SphereCollisionShape sphereShape = new SphereCollisionShape(0.35f / 2f);
 
     private final Geometry monkeyGeometry = new Geometry(Geometries.MONKEY);
-
-    private final DynamicPlayerController player = new DynamicPlayerController();
-    private boolean playerActive = false;
+    private final CollisionShape monkeyShape;
+    private final MeshData monkeyShapeMesh;
     
+    {
+        float[] vertices = this.monkeyGeometry.getMesh().getVertices();
+        int[] indices = this.monkeyGeometry.getMesh().getIndices();
+        
+        float[] positionsOnly = new float[(vertices.length / MeshData.SIZE) * 3];
+        for (int i = 0; i < vertices.length / MeshData.SIZE; i++) {
+            positionsOnly[(i * 3) + 0] = vertices[(i * MeshData.SIZE) + 0];
+            positionsOnly[(i * 3) + 1] = vertices[(i * MeshData.SIZE) + 1];
+            positionsOnly[(i * 3) + 2] = vertices[(i * MeshData.SIZE) + 2];
+        }
+        
+        Vhacd4Parameters params = new Vhacd4Parameters();
+        params.setVoxelResolution(100000);
+        params.setVolumePercentError(0.1);
+        params.setMaxHulls(8);
+        params.setMaxRecursion(15);
+        List<Vhacd4Hull> hulls = Vhacd4.compute(positionsOnly, indices, params);
+        
+        CompoundCollisionShape compound = new CompoundCollisionShape();
+        
+        for (Vhacd4Hull hull:hulls) {
+            compound.addChildShape(new HullCollisionShape(hull.clonePositions()));
+        }
+        
+        this.monkeyShape = compound;
+        this.monkeyShapeMesh = MeshUtils.createMeshFromCollisionShape("monkeyMesh", this.monkeyShape);
+    }
+
+    private final PlayerController player = new PlayerController();
+    private boolean playerActive = false;
+
     private Game() {
 
     }
@@ -221,17 +261,17 @@ public class Game {
     public void start() {
         this.physicsSpace.setMaxSubSteps(8);
         this.physicsSpace.setAccuracy(1f / 120f);
-        
+
         this.player.getCharacterController().addToPhysicsSpace(this.physicsSpace);
-        
+
         resetPlayer();
-        
-        this.monkeyGeometry.setModel(new Matrix4f().translate(0, 7, 0));
-        //this.monkeyGeometry.setModel(new Matrix4f().translate(0, 30, 0).scale(20f));
-        
+
+        //this.monkeyGeometry.setModel(new Matrix4f().translate(0, 20, 0));
+        this.monkeyGeometry.setModel(new Matrix4f().translate(40, -10, 0).scale(20f));
+
         camera.setPosition(1f, 3f, -5f);
         camera.setUBO(CameraUBO.create(UBOBindingPoints.PLAYER_CAMERA));
-        
+
         GeometryProgram program = GeometryProgram.INSTANCE;
         program.use();
         program.setModel(new Matrix4f());
@@ -251,9 +291,7 @@ public class Game {
         loadLightmap(this.scene.getGeometries().get(2), "bricks.lightmap");
         loadLightmap(this.scene.getGeometries().get(3), "red.lightmap");
         this.geometryLightmaps.clear();
-        
-        
-        
+
         this.scene.setIndirectLightingEnabled(true);
         this.scene.setDirectLightingEnabled(true);
         this.scene.setShadowsEnabled(true);
@@ -325,7 +363,8 @@ public class Game {
         MeshCollisionShape world = new MeshCollisionShape(true, worldMeshes);
         world.setMargin(0.01f);
         PhysicsRigidBody worldBody = new PhysicsRigidBody(world, 0f);
-        worldBody.setRestitution(0.25f);
+        worldBody.setRestitution(1f);
+        worldBody.setFriction(1f);
         this.physicsSpace.addCollisionObject(worldBody);
 
     }
@@ -495,7 +534,11 @@ public class Game {
                 program.setSunDiffuse(this.sun.getDiffuse());
             }
 
-            model.translate(position).scale(this.sphereShape.getRadius() * 2f);
+            model.translate(position);
+
+            if (geo.getMesh().equals(Geometries.SPHERE)) {
+                model.scale(this.sphereShape.getRadius() * 2f);
+            }
 
             com.jme3.math.Matrix3f rot = e.getPhysicsRotationMatrix(null);
             Matrix3f rotation = new Matrix3f();
@@ -508,16 +551,17 @@ public class Game {
             geo.setModel(model);
 
             program.setModel(model);
-            MeshData sphere = Geometries.SPHERE;
 
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, Textures.RED);
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D_ARRAY, Textures.EMPTY_LIGHTMAP);
 
-            glBindVertexArray(Geometries.SPHERE.getVAO());
-            sphere.render();
-            glBindVertexArray(0);
+            //if (geo.getMesh().equals(Geometries.MONKEY)) {
+            //    this.monkeyShapeMesh.bindRenderUnbind();
+            //} else {
+                geo.getMesh().bindRenderUnbind();
+            //}
         }
         program.setLightingEnabled(false);
 
@@ -588,11 +632,11 @@ public class Game {
 
                     camTarget.sub(spherePosition).normalize();
 
-                    sphere.applyCentralImpulse(
+                    sphere.applyCentralForce(
                             new com.jme3.math.Vector3f(
-                                    camTarget.x() * 0.01f,
-                                    camTarget.y() * 0.01f,
-                                    camTarget.z() * 0.01f
+                                    camTarget.x() * sphere.getMass() * 20f,
+                                    camTarget.y() * sphere.getMass() * 20f,
+                                    camTarget.z() * sphere.getMass() * 20f
                             )
                     );
                 }
@@ -761,7 +805,9 @@ public class Game {
             }
         }
         if (key == GLFW_KEY_E && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-            PhysicsRigidBody physicsSphere = new PhysicsRigidBody(sphereShape, 10f);
+            PhysicsRigidBody physicsSphere = new PhysicsRigidBody(sphereShape, 5f);
+            physicsSphere.setCcdSweptSphereRadius(sphereShape.maxRadius());
+            physicsSphere.setCcdMotionThreshold(sphereShape.maxRadius());
             Vector3fc front = this.camera.getFront();
             physicsSphere.setPhysicsLocation(new com.jme3.math.Vector3f(
                     (float) this.camera.getPosition().x() + front.x(),
@@ -769,23 +815,50 @@ public class Game {
                     (float) this.camera.getPosition().z() + front.z()
             ));
             physicsSphere.applyCentralImpulse(new com.jme3.math.Vector3f(
-                    front.x() * 5f,
-                    front.y() * 5f,
-                    front.z() * 5f
+                    front.x() * physicsSphere.getMass() * 10f,
+                    front.y() * physicsSphere.getMass() * 10f,
+                    front.z() * physicsSphere.getMass() * 10f
             ));
             physicsSphere.setFriction(1f);
             physicsSphere.setRollingFriction(0.02f);
             physicsSphere.setSpinningFriction(0.02f);
-            physicsSphere.setRestitution(0.75f);
+            physicsSphere.setRestitution(0.5f);
             physicsSphere.setUserObject(new Geometry(Geometries.SPHERE));
             this.physicsSpace.addCollisionObject(physicsSphere);
             this.spheres.add(physicsSphere);
+        }
+        if (key == GLFW_KEY_M && action == GLFW_PRESS) {
+            PhysicsRigidBody physicsMonkey = new PhysicsRigidBody(this.monkeyShape, 350f);
+            physicsMonkey.setCcdSweptSphereRadius(this.monkeyShape.maxRadius());
+            physicsMonkey.setCcdMotionThreshold(this.monkeyShape.maxRadius());
+            Vector3fc front = this.camera.getFront();
+            physicsMonkey.setPhysicsLocation(new com.jme3.math.Vector3f(
+                    (float) this.camera.getPosition().x() + front.x(),
+                    (float) this.camera.getPosition().y() + front.y(),
+                    (float) this.camera.getPosition().z() + front.z()
+            ));
+            physicsMonkey.applyCentralImpulse(new com.jme3.math.Vector3f(
+                    front.x() * physicsMonkey.getMass() * 10f,
+                    front.y() * physicsMonkey.getMass() * 10f,
+                    front.z() * physicsMonkey.getMass() * 10f
+            ));
+            physicsMonkey.setFriction(1f);
+            physicsMonkey.setRollingFriction(0.0f);
+            physicsMonkey.setSpinningFriction(0.0f);
+            physicsMonkey.setRestitution(0.05f);
+            physicsMonkey.setUserObject(new Geometry(Geometries.MONKEY));
+            this.physicsSpace.addCollisionObject(physicsMonkey);
+            this.spheres.add(physicsMonkey);
         }
         if (key == GLFW_KEY_G && action == GLFW_PRESS) {
             for (PhysicsRigidBody e : this.spheres) {
                 float x = (float) ((Math.random() * 2.0) - 1.0);
                 float z = (float) ((Math.random() * 2.0) - 1.0);
-                e.applyCentralImpulse(new com.jme3.math.Vector3f(x * 2f, 5f, z * 2f));
+                e.applyCentralImpulse(new com.jme3.math.Vector3f(
+                        x * e.getMass() * 30f,
+                        e.getMass() * 30f,
+                        z * e.getMass() * 30f
+                ));
             }
         }
         if (key == GLFW_KEY_R && action == GLFW_PRESS) {
@@ -838,9 +911,9 @@ public class Game {
 
                     sphere.applyImpulse(
                             new com.jme3.math.Vector3f(
-                                    this.camera.getFront().x() * 3f,
-                                    this.camera.getFront().y() * 3f,
-                                    this.camera.getFront().z() * 3f
+                                    this.camera.getFront().x() * sphere.getMass() * 30f,
+                                    this.camera.getFront().y() * sphere.getMass() * 30f,
+                                    this.camera.getFront().z() * sphere.getMass() * 30f
                             ),
                             o
                     );
