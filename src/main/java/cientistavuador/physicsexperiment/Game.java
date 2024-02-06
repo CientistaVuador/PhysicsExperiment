@@ -42,12 +42,14 @@ import cientistavuador.physicsexperiment.text.GLFontSpecifications;
 import cientistavuador.physicsexperiment.texture.Textures;
 import cientistavuador.physicsexperiment.ubo.CameraUBO;
 import cientistavuador.physicsexperiment.ubo.UBOBindingPoints;
+import cientistavuador.physicsexperiment.util.CollisionShapeStore;
 import cientistavuador.physicsexperiment.util.LightmapFile;
 import cientistavuador.physicsexperiment.util.MeshUtils;
 import cientistavuador.physicsexperiment.util.bakedlighting.BakedLighting;
 import cientistavuador.physicsexperiment.util.raycast.RayResult;
 import cientistavuador.physicsexperiment.util.bakedlighting.SamplingMode;
 import cientistavuador.physicsexperiment.util.bakedlighting.Scene;
+import com.jme3.bullet.FillMode;
 import com.jme3.bullet.PhysicsSpace;
 import com.jme3.bullet.collision.shapes.CollisionShape;
 import com.jme3.bullet.collision.shapes.CompoundCollisionShape;
@@ -58,9 +60,11 @@ import com.jme3.bullet.collision.shapes.SphereCollisionShape;
 import com.jme3.bullet.collision.shapes.infos.IndexedMesh;
 import com.jme3.bullet.objects.PhysicsRigidBody;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.text.ParseException;
@@ -193,29 +197,41 @@ public class Game {
     private final Geometry monkeyGeometry = new Geometry(Geometries.MONKEY);
     private final CollisionShape monkeyShape;
     private final MeshData monkeyShapeMesh;
-    
+
     {
-        float[] vertices = this.monkeyGeometry.getMesh().getVertices();
+        /*float[] vertices = this.monkeyGeometry.getMesh().getVertices();
         int[] indices = this.monkeyGeometry.getMesh().getIndices();
         
         float[] positionsOnly = new float[(vertices.length / MeshData.SIZE) * 3];
         for (int i = 0; i < vertices.length / MeshData.SIZE; i++) {
-            positionsOnly[(i * 3) + 0] = vertices[(i * MeshData.SIZE) + 0];
-            positionsOnly[(i * 3) + 1] = vertices[(i * MeshData.SIZE) + 1];
-            positionsOnly[(i * 3) + 2] = vertices[(i * MeshData.SIZE) + 2];
+        positionsOnly[(i * 3) + 0] = vertices[(i * MeshData.SIZE) + 0];
+        positionsOnly[(i * 3) + 1] = vertices[(i * MeshData.SIZE) + 1];
+        positionsOnly[(i * 3) + 2] = vertices[(i * MeshData.SIZE) + 2];
         }
         
         Vhacd4Parameters params = new Vhacd4Parameters();
-        params.setVoxelResolution(100000);
-        params.setVolumePercentError(0.1);
-        params.setMaxHulls(8);
-        params.setMaxRecursion(15);
+        params.setFindBestPlane(true);
+        params.setMaxHulls(6);
+        params.setMaxVerticesPerHull(64);
+        
+        params.setVolumePercentError(1);
+        params.setVoxelResolution(500000);
+        
         List<Vhacd4Hull> hulls = Vhacd4.compute(positionsOnly, indices, params);
         
         CompoundCollisionShape compound = new CompoundCollisionShape();
         
         for (Vhacd4Hull hull:hulls) {
-            compound.addChildShape(new HullCollisionShape(hull.clonePositions()));
+        compound.addChildShape(new HullCollisionShape(hull.clonePositions()));
+        }*/
+        
+        CollisionShape compound;
+        try {
+            try (InputStream stream = Geometries.class.getResourceAsStream("monkey.collision")) {
+                compound = CollisionShapeStore.decode(stream);
+            }
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
         }
         
         this.monkeyShape = compound;
@@ -557,11 +573,11 @@ public class Game {
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D_ARRAY, Textures.EMPTY_LIGHTMAP);
 
-            //if (geo.getMesh().equals(Geometries.MONKEY)) {
-            //    this.monkeyShapeMesh.bindRenderUnbind();
-            //} else {
+            if (geo.getMesh().equals(Geometries.MONKEY)) {
+                this.monkeyShapeMesh.bindRenderUnbind();
+            } else {
                 geo.getMesh().bindRenderUnbind();
-            //}
+            }
         }
         program.setLightingEnabled(false);
 
