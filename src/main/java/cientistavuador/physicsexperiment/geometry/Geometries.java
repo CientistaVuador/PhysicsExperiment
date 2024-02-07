@@ -52,7 +52,7 @@ public class Geometries {
     static {
         Map<String, MeshData> meshes = GeometriesLoader.load(
                 MeshConfiguration.lightmapped("garage.obj"),
-                MeshConfiguration.nothing("ciencola.obj")//,
+                MeshConfiguration.ambientOcclusion("ciencola.obj", 32)//,
         //MeshConfiguration.nothing("sphere.obj"),
         //MeshConfiguration.ambientOcclusion("monkey.obj", 8192)
         );
@@ -67,6 +67,20 @@ public class Geometries {
         GARAGE = new MeshData[]{concrete, grass, bricks, red};
 
         MeshData ciencola = meshes.get("ciencola.obj");
+        
+        {
+            float[] verts = ciencola.getVertices();
+            
+            float scale = 0.15f;
+            for (int i = 0; i < verts.length; i += MeshData.SIZE) {
+                verts[i + MeshData.XYZ_OFFSET + 0] = verts[i + MeshData.XYZ_OFFSET + 0] * scale;
+                verts[i + MeshData.XYZ_OFFSET + 1] = verts[i + MeshData.XYZ_OFFSET + 1] * scale;
+                verts[i + MeshData.XYZ_OFFSET + 2] = verts[i + MeshData.XYZ_OFFSET + 2] * scale;
+            }
+            
+            ciencola = new MeshData(ciencola.getName(), verts, ciencola.getIndices());
+        }
+        
         ciencola.setTextureHint(Textures.CIENCOLA);
         CIENCOLA = ciencola;
 

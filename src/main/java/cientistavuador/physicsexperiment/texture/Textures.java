@@ -122,7 +122,7 @@ public class Textures {
     static {
         int[] textures = TexturesLoader.load(
                 "bricks.png",
-                "concrete.png",
+                "cement.png",
                 "grass.png",
                 "red.png",
                 "ciencola_diffuse_512.png"

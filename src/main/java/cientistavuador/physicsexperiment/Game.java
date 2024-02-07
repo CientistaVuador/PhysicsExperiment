@@ -197,7 +197,10 @@ public class Game {
     private final Geometry monkeyGeometry = new Geometry(Geometries.MONKEY);
     private final CollisionShape monkeyShape;
     private final MeshData monkeyShapeMesh;
-
+    
+    private final CollisionShape ciencolaShape;
+    private final MeshData ciencolaShapeMesh;
+    
     {
         /*float[] vertices = this.monkeyGeometry.getMesh().getVertices();
         int[] indices = this.monkeyGeometry.getMesh().getIndices();
@@ -224,7 +227,7 @@ public class Game {
         for (Vhacd4Hull hull:hulls) {
         compound.addChildShape(new HullCollisionShape(hull.clonePositions()));
         }*/
-        
+
         CollisionShape compound;
         try {
             try (InputStream stream = Geometries.class.getResourceAsStream("monkey.collision")) {
@@ -233,9 +236,20 @@ public class Game {
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
-        
+
         this.monkeyShape = compound;
         this.monkeyShapeMesh = MeshUtils.createMeshFromCollisionShape("monkeyMesh", this.monkeyShape);
+    }
+    
+    {
+        MeshData ciencola = Geometries.CIENCOLA;
+        
+        this.ciencolaShape = MeshUtils.cylinderCollisionFromVertices(
+                ciencola.getVertices(), MeshData.SIZE, MeshData.XYZ_OFFSET,
+                0f, 0f, 0f,
+                1
+        );
+        this.ciencolaShapeMesh = MeshUtils.createMeshFromCollisionShape("ciencolaMesh", this.ciencolaShape);
     }
 
     private final PlayerController player = new PlayerController();
@@ -318,7 +332,7 @@ public class Game {
         this.scene.setSamplingMode(SamplingMode.SAMPLE_16);
 
         this.scene.setFastModeEnabled(false);
-
+        
         sun.setGroupName("sun");
         this.scene.getLights().add(sun);
 
@@ -569,15 +583,15 @@ public class Game {
             program.setModel(model);
 
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, Textures.RED);
+            glBindTexture(GL_TEXTURE_2D, geo.getMesh().getTextureHint());
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D_ARRAY, Textures.EMPTY_LIGHTMAP);
 
-            if (geo.getMesh().equals(Geometries.MONKEY)) {
-                this.monkeyShapeMesh.bindRenderUnbind();
-            } else {
-                geo.getMesh().bindRenderUnbind();
-            }
+            //if (geo.getMesh().equals(Geometries.MONKEY)) {
+            //    this.monkeyShapeMesh.bindRenderUnbind();
+            //} else {
+            geo.getMesh().bindRenderUnbind();
+            //}
         }
         program.setLightingEnabled(false);
 
@@ -865,6 +879,29 @@ public class Game {
             physicsMonkey.setUserObject(new Geometry(Geometries.MONKEY));
             this.physicsSpace.addCollisionObject(physicsMonkey);
             this.spheres.add(physicsMonkey);
+        }
+        if (key == GLFW_KEY_C && action == GLFW_PRESS) {
+            PhysicsRigidBody physicsCiencola = new PhysicsRigidBody(this.ciencolaShape, 0.4f);
+            physicsCiencola.setCcdSweptSphereRadius(this.ciencolaShape.maxRadius());
+            physicsCiencola.setCcdMotionThreshold(this.ciencolaShape.maxRadius());
+            Vector3fc front = this.camera.getFront();
+            physicsCiencola.setPhysicsLocation(new com.jme3.math.Vector3f(
+                    (float) this.camera.getPosition().x() + front.x(),
+                    (float) this.camera.getPosition().y() + front.y(),
+                    (float) this.camera.getPosition().z() + front.z()
+            ));
+            physicsCiencola.applyCentralImpulse(new com.jme3.math.Vector3f(
+                    front.x() * physicsCiencola.getMass() * 10f,
+                    front.y() * physicsCiencola.getMass() * 10f,
+                    front.z() * physicsCiencola.getMass() * 10f
+            ));
+            physicsCiencola.setFriction(0.2f);
+            physicsCiencola.setRollingFriction(0.005f);
+            physicsCiencola.setSpinningFriction(0.01f);
+            physicsCiencola.setRestitution(0.0f);
+            physicsCiencola.setUserObject(new Geometry(Geometries.CIENCOLA));
+            this.physicsSpace.addCollisionObject(physicsCiencola);
+            this.spheres.add(physicsCiencola);
         }
         if (key == GLFW_KEY_G && action == GLFW_PRESS) {
             for (PhysicsRigidBody e : this.spheres) {

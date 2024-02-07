@@ -38,7 +38,6 @@ import com.jme3.bullet.collision.shapes.SphereCollisionShape;
 import com.jme3.bullet.collision.shapes.infos.ChildCollisionShape;
 import com.jme3.bullet.collision.shapes.infos.CompoundMesh;
 import com.jme3.bullet.collision.shapes.infos.IndexedMesh;
-import com.jme3.math.Matrix3f;
 import com.jme3.math.Quaternion;
 import com.jme3.math.Transform;
 import com.jme3.math.Vector3f;
@@ -131,7 +130,7 @@ public class CollisionShapeStore {
 
     private CollisionShapeStore(OutputStream output, CollisionShape shape) throws IOException {
         this.input = null;
-        this.output = new GZIPOutputStream(output, 65536);
+        this.output = new GZIPOutputStream(output, 8192);
 
         this.dataInput = null;
         this.dataOutput = new DataOutputStream(this.output);
@@ -140,7 +139,7 @@ public class CollisionShapeStore {
     }
 
     private CollisionShapeStore(InputStream input) throws IOException {
-        this.input = new GZIPInputStream(input, 65536);
+        this.input = new GZIPInputStream(input, 8192);
         this.output = null;
 
         this.dataInput = new DataInputStream(this.input);

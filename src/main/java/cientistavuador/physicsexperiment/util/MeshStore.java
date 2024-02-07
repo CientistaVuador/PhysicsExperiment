@@ -87,7 +87,7 @@ public class MeshStore {
     private int[] indices = null;
 
     private MeshStore(InputStream input) throws IOException {
-        this.input = new GZIPInputStream(input, 65536);
+        this.input = new GZIPInputStream(input, 8192);
         this.output = null;
         this.dataInput = new DataInputStream(this.input);
         this.dataOutput = null;
@@ -95,7 +95,7 @@ public class MeshStore {
 
     private MeshStore(float[] vertices, int vertexSize, int[] indices, OutputStream output) throws IOException {
         this.input = null;
-        this.output = new GZIPOutputStream(output, 65536);
+        this.output = new GZIPOutputStream(output, 8192);
         this.dataInput = null;
         this.dataOutput = new DataOutputStream(this.output);
 

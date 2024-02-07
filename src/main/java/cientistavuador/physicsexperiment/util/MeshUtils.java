@@ -28,7 +28,11 @@ package cientistavuador.physicsexperiment.util;
 
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
 import cientistavuador.physicsexperiment.util.bakedlighting.LightmapUVs;
+import com.jme3.bullet.collision.shapes.BoxCollisionShape;
+import com.jme3.bullet.collision.shapes.CapsuleCollisionShape;
 import com.jme3.bullet.collision.shapes.CollisionShape;
+import com.jme3.bullet.collision.shapes.CylinderCollisionShape;
+import com.jme3.bullet.collision.shapes.SphereCollisionShape;
 import com.jme3.bullet.util.DebugShapeFactory;
 import java.nio.FloatBuffer;
 import java.util.Arrays;
@@ -366,7 +370,188 @@ public class MeshUtils {
         
         return new MeshData(name, generated.getA(), generated.getB());
     }
-
+    
+    public static SphereCollisionShape sphereCollisionFromVertices(float[] vertices, int vertexSize, int xyzOffset, float centerX, float centerY, float centerZ) {
+        float maxRadius = 0f;
+        
+        for (int i = 0; i < vertices.length; i += vertexSize) {
+            float x = vertices[i + xyzOffset + 0];
+            float y = vertices[i + xyzOffset + 1];
+            float z = vertices[i + xyzOffset + 2];
+            
+            x -= centerX;
+            y -= centerY;
+            z -= centerZ;
+            
+            maxRadius = (float) Math.max(maxRadius, Math.sqrt(
+                    (x * x) + (y * y) + (z * z)
+            ));
+        }
+        
+        if (maxRadius <= 0f) {
+            return null;
+        }
+        
+        return new SphereCollisionShape(maxRadius);
+    }
+    
+    public static CylinderCollisionShape cylinderCollisionFromVertices(float[] vertices, int vertexSize, int xyzOffset, float centerX, float centerY, float centerZ, int axis) {
+        float maxRadius = 0f;
+        float maxHeight = 0f;
+        
+        for (int i = 0; i < vertices.length; i += vertexSize) {
+            float x = vertices[i + xyzOffset + 0];
+            float y = vertices[i + xyzOffset + 1];
+            float z = vertices[i + xyzOffset + 2];
+            
+            x -= centerX;
+            y -= centerY;
+            z -= centerZ;
+            
+            float radiusX, heightY, radiusZ;
+            
+            switch (axis) {
+                case 0 -> {
+                    radiusX = y;
+                    heightY = x;
+                    radiusZ = z;
+                }
+                case 1 -> {
+                    radiusX = x;
+                    heightY = y;
+                    radiusZ = z;
+                }
+                case 2 -> {
+                    radiusX = x;
+                    heightY = z;
+                    radiusZ = y;
+                }
+                default -> throw new UnsupportedOperationException("Unknown axis "+axis);
+            }
+            
+            float radius = (float) Math.sqrt((radiusX * radiusX) + (radiusZ * radiusZ));
+            float height = Math.abs(heightY);
+            
+            maxRadius = Math.max(maxRadius, radius);
+            maxHeight = Math.max(maxHeight, height);
+        }
+        
+        if (maxRadius <= 0f) {
+            return null;
+        }
+        if (maxHeight <= 0f) {
+            return null;
+        }
+        
+        return new CylinderCollisionShape(maxRadius, maxHeight * 2f, axis);
+    }
+    
+    public static BoxCollisionShape boxCollisionFromVertices(float[] vertices, int vertexSize, int xyzOffset, float centerX, float centerY, float centerZ) {
+        float halfExtentX = 0f;
+        float halfExtentY = 0f;
+        float halfExtentZ = 0f;
+        
+        for (int i = 0; i < vertices.length; i += vertexSize) {
+            float x = vertices[i + xyzOffset + 0];
+            float y = vertices[i + xyzOffset + 1];
+            float z = vertices[i + xyzOffset + 2];
+            
+            x -= centerX;
+            y -= centerY;
+            z -= centerZ;
+            
+            halfExtentX = Math.max(halfExtentX, Math.abs(x));
+            halfExtentY = Math.max(halfExtentY, Math.abs(y));
+            halfExtentZ = Math.max(halfExtentZ, Math.abs(z));
+        }
+        
+        return new BoxCollisionShape(halfExtentX, halfExtentY, halfExtentZ);
+    }
+    
+    public static CapsuleCollisionShape capsuleCollisionFromVertices(float[] vertices, int vertexSize, int xyzOffset, float centerX, float centerY, float centerZ, int axis) {
+        float maxRadius = 0f;
+        float maxHeight = 0f;
+        
+        for (int i = 0; i < vertices.length; i += vertexSize) {
+            float x = vertices[i + xyzOffset + 0];
+            float y = vertices[i + xyzOffset + 1];
+            float z = vertices[i + xyzOffset + 2];
+            
+            x -= centerX;
+            y -= centerY;
+            z -= centerZ;
+            
+            float radiusX, heightY, radiusZ;
+            
+            switch (axis) {
+                case 0 -> {
+                    radiusX = y;
+                    heightY = x;
+                    radiusZ = z;
+                }
+                case 1 -> {
+                    radiusX = x;
+                    heightY = y;
+                    radiusZ = z;
+                }
+                case 2 -> {
+                    radiusX = x;
+                    heightY = z;
+                    radiusZ = y;
+                }
+                default -> throw new UnsupportedOperationException("Unknown axis "+axis);
+            }
+            
+            float radius = (float) Math.sqrt((radiusX * radiusX) + (radiusZ * radiusZ));
+            float height = Math.abs(heightY);
+            
+            maxRadius = Math.max(maxRadius, radius);
+            maxHeight = Math.max(maxHeight, height);
+        }
+        
+        float radius = maxRadius;
+        float height = (maxHeight * 2f) - (maxRadius * 2f);
+        
+        if (radius <= 0f) {
+            return null;
+        }
+        if (height <= 0f) {
+            return null;
+        }
+        
+        return new CapsuleCollisionShape(radius, height, axis);
+    }
+    
+    public static void aabCenter(float[] vertices, int vertexSize, int xyzOffset, Vector3f centerOut) {
+        float minX = Float.POSITIVE_INFINITY;
+        float minY = Float.POSITIVE_INFINITY;
+        float minZ = Float.POSITIVE_INFINITY;
+        
+        float maxX = Float.NEGATIVE_INFINITY;
+        float maxY = Float.NEGATIVE_INFINITY;
+        float maxZ = Float.NEGATIVE_INFINITY;
+        
+        for (int i = 0; i < vertices.length; i += vertexSize) {
+            float x = vertices[i + xyzOffset + 0];
+            float y = vertices[i + xyzOffset + 1];
+            float z = vertices[i + xyzOffset + 2];
+            
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            minZ = Math.min(minZ, z);
+            
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+            maxZ = Math.max(maxZ, z);
+        }
+        
+        float centerX = (minX * 0.5f) + (maxX * 0.5f);
+        float centerY = (minY * 0.5f) + (maxY * 0.5f);
+        float centerZ = (minZ * 0.5f) + (maxZ * 0.5f);
+        
+        centerOut.set(centerX, centerY, centerZ);
+    }
+    
     private MeshUtils() {
 
     }
