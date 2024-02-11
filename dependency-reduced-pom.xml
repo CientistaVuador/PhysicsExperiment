@@ -18,6 +18,7 @@
           <include>**/*.gz</include>
           <include>**/*.lightmap</include>
           <include>**/*.mesh</include>
+          <include>**/*.collision</include>
         </includes>
       </resource>
     </resources>
