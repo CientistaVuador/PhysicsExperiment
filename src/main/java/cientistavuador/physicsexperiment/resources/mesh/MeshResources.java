@@ -326,16 +326,7 @@ public class MeshResources {
         for (int i = 0; i < this.verticesIndex / 8; i++) {
             System.arraycopy(this.vertices, i * 8, newVertices, i * MeshData.SIZE, 8);
         }
-
-        if (Float.isFinite(this.configuration.getEpsilonDistance()) && this.configuration.getEpsilonDistance() > 0f) {
-            MeshUtils.conservativeMergeByDistanceXYZ(
-                    newVertices,
-                    MeshData.SIZE,
-                    MeshData.XYZ_OFFSET,
-                    this.configuration.getEpsilonDistance()
-            );
-        }
-
+        
         MeshUtils.generateTangent(
                 newVertices,
                 MeshData.SIZE,

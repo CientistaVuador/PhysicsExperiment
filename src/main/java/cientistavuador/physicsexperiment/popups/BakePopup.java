@@ -28,9 +28,11 @@ package cientistavuador.physicsexperiment.popups;
 
 import cientistavuador.physicsexperiment.Main;
 import cientistavuador.physicsexperiment.util.bakedlighting.SamplingMode;
+import cientistavuador.physicsexperiment.util.bakedlighting.Scene;
 import java.awt.Image;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.text.ParseException;
 import java.util.function.Consumer;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.ImageIcon;
@@ -46,9 +48,92 @@ import javax.swing.SwingUtilities;
 @SuppressWarnings("serial")
 public class BakePopup extends javax.swing.JFrame {
 
-    public static void show(Consumer<BakePopup> bakeCallback, Consumer<BakePopup> closeCallback) {
+    public static void toScene(Scene scene, BakePopup popup) {
+        try {
+            //config
+            popup.getPixelToWorldRatio().commitEdit();
+            float pixelToWorldRatio = ((Number) popup.getPixelToWorldRatio().getValue()).floatValue();
+            SamplingMode samplingMode = (SamplingMode) popup.getSamplingMode().getSelectedItem();
+            popup.getRayOffset().commitEdit();
+            float rayOffset = ((Number) popup.getRayOffset().getValue()).floatValue();
+            boolean fillEmptyValues = popup.getFillEmptyValues().isSelected();
+            boolean fastMode = popup.getFastMode().isSelected();
+
+            scene.setPixelToWorldRatio(pixelToWorldRatio);
+            scene.setSamplingMode(samplingMode);
+            scene.setRayOffset(rayOffset);
+            scene.setFillDisabledValuesWithLightColors(fillEmptyValues);
+            scene.setFastModeEnabled(fastMode);
+
+            //direct
+            boolean directEnabled = popup.getDirectLighting().isSelected();
+            popup.getDirectAttenuation().commitEdit();
+            float attenuation = ((Number) popup.getDirectAttenuation().getValue()).floatValue();
+
+            scene.setDirectLightingEnabled(directEnabled);
+            scene.setDirectLightingAttenuation(attenuation);
+
+            //shadows
+            boolean shadowsEnabled = popup.getShadows().isSelected();
+            popup.getShadowRays().commitEdit();
+            int shadowRays = ((Number) popup.getShadowRays().getValue()).intValue();
+            popup.getShadowBlur().commitEdit();
+            float shadowBlur = ((Number) popup.getShadowBlur().getValue()).floatValue();
+
+            scene.setShadowsEnabled(shadowsEnabled);
+            scene.setShadowRaysPerSample(shadowRays);
+            scene.setShadowBlurArea(shadowBlur);
+
+            //indirect
+            boolean indirectEnabled = popup.getIndirectLighting().isSelected();
+            popup.getIndirectRays().commitEdit();
+            int indirectRays = ((Number) popup.getIndirectRays().getValue()).intValue();
+            popup.getIndirectBounces().commitEdit();
+            int bounces = ((Number) popup.getIndirectBounces().getValue()).intValue();
+            popup.getIndirectBlur().commitEdit();
+            float indirectBlur = ((Number) popup.getIndirectBlur().getValue()).floatValue();
+            popup.getIndirectReflectionFactor().commitEdit();
+            float reflectionFactor = ((Number) popup.getIndirectReflectionFactor().getValue()).floatValue();
+
+            scene.setIndirectLightingEnabled(indirectEnabled);
+            scene.setIndirectRaysPerSample(indirectRays);
+            scene.setIndirectBounces(bounces);
+            scene.setIndirectLightingBlurArea(indirectBlur);
+            scene.setIndirectLightReflectionFactor(reflectionFactor);
+        } catch (ParseException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void fromScene(Scene scene, BakePopup popup) {
+        //config
+        popup.getPixelToWorldRatio().setValue(scene.getPixelToWorldRatio());
+        popup.getSamplingMode().setSelectedItem(scene.getSamplingMode());
+        popup.getRayOffset().setValue(scene.getRayOffset());
+        popup.getFillEmptyValues().setSelected(scene.fillEmptyValuesWithLightColors());
+        popup.getFastMode().setSelected(scene.isFastModeEnabled());
+
+        //direct
+        popup.getDirectLighting().setSelected(scene.isDirectLightingEnabled());
+        popup.getDirectAttenuation().setValue(scene.getDirectLightingAttenuation());
+
+        //shadows
+        popup.getShadows().setSelected(scene.isShadowsEnabled());
+        popup.getShadowRays().setValue(scene.getShadowRaysPerSample());
+        popup.getShadowBlur().setValue(scene.getShadowBlurArea());
+
+        //indirect
+        popup.getIndirectLighting().setSelected(scene.isIndirectLightingEnabled());
+        popup.getIndirectRays().setValue(scene.getIndirectRaysPerSample());
+        popup.getIndirectBounces().setValue(scene.getIndirectBounces());
+        popup.getIndirectBlur().setValue(scene.getIndirectLightingBlurArea());
+        popup.getIndirectReflectionFactor().setValue(scene.getIndirectLightReflectionFactor());
+    }
+
+    public static void show(Consumer<BakePopup> setup, Consumer<BakePopup> bakeCallback, Consumer<BakePopup> closeCallback) {
         SwingUtilities.invokeLater(() -> {
             BakePopup popup = new BakePopup();
+            setup.accept(popup);
             popup.bakeButton.addActionListener((e) -> {
                 bakeCallback.accept(popup);
             });
@@ -393,7 +478,7 @@ public class BakePopup extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void samplingModeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_samplingModeActionPerformed
-        this.iconLabel.setIcon(new ImageIcon(((SamplingMode)this.samplingMode.getSelectedItem()).image().getScaledInstance(128, 128, Image.SCALE_FAST)));
+        this.iconLabel.setIcon(new ImageIcon(((SamplingMode) this.samplingMode.getSelectedItem()).image().getScaledInstance(128, 128, Image.SCALE_FAST)));
     }//GEN-LAST:event_samplingModeActionPerformed
 
     public JFormattedTextField getPixelToWorldRatio() {

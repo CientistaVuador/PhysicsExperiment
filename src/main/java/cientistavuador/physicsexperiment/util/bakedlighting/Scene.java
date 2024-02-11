@@ -214,7 +214,9 @@ public class Scene {
         }
         
     }
-
+    
+    private float pixelToWorldRatio = 6f;
+    
     private final List<Geometry> geometries = new ArrayList<>();
     private final List<Light> lights = new ArrayList<>();
 
@@ -242,6 +244,14 @@ public class Scene {
 
     }
 
+    public float getPixelToWorldRatio() {
+        return pixelToWorldRatio;
+    }
+
+    public void setPixelToWorldRatio(float pixelToWorldRatio) {
+        this.pixelToWorldRatio = pixelToWorldRatio;
+    }
+    
     public List<Geometry> getGeometries() {
         return geometries;
     }

@@ -285,7 +285,11 @@ public class CollisionShapeStore {
             out.writeInt(bytes.length);
             out.write(bytes);
         }
-
+        
+        byte[] bvh = mesh.serializeBvh();
+        out.writeInt(bvh.length);
+        out.write(bvh);
+        
         writeGeneric(mesh);
     }
 
@@ -512,8 +516,11 @@ public class CollisionShapeStore {
 
             meshes[i] = indexed;
         }
-
-        MeshCollisionShape mesh = new MeshCollisionShape(true, meshes);
+        
+        byte[] bvhData = new byte[in.readInt()];
+        in.readFully(bvhData);
+        
+        MeshCollisionShape mesh = new MeshCollisionShape(bvhData, meshes);
         readGeneric(mesh);
 
         return mesh;

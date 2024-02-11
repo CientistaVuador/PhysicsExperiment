@@ -259,18 +259,17 @@ public class MeshUtils {
         calculateTriangleNormal(ax, ay, az, bx, by, bz, cx, cy, cz, outNormal);
     }
 
-    private static float valuesDistance(float[] values) {
-        if (values.length == 1) {
-            return Math.abs(values[0]);
-        }
+    private static float valuesDistanceSquared(float[] values) {
         float totalSum = 0f;
         for (int i = 0; i < values.length; i++) {
             totalSum += (values[i] * values[i]);
         }
-        return (float) Math.sqrt(totalSum);
+        return totalSum;
     }
     
     public static int conservativeMergeByDistance(float[] vertices, int vertexSize, int offset, int size, float distance) {
+        float distanceSquared = distance * distance;
+        
         int altered = 0;
         boolean[] processed = new boolean[vertices.length / vertexSize];
         
@@ -296,14 +295,14 @@ public class MeshUtils {
                     other[i] = current[i] - other[i];
                 }
                 
-                float otherDistance = valuesDistance(other);
+                float otherDistanceSquared = valuesDistanceSquared(other);
                 
-                if (otherDistance == 0f) {
+                if (otherDistanceSquared == 0f) {
                     processed[vOther / vertexSize] = true;
                     continue;
                 }
 
-                if (otherDistance <= distance) {
+                if (otherDistanceSquared <= distanceSquared) {
                     System.arraycopy(current, 0, vertices, vOther + offset, size);
                     processed[vOther / vertexSize] = true;
                     altered++;

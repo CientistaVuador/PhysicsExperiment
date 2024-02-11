@@ -129,7 +129,7 @@ public class BVH implements Aab {
                 float centerZ = (minZ * 0.5f) + (maxZ * 0.5f);
 
                 BVH closest = null;
-                float closestDistance = Float.POSITIVE_INFINITY;
+                float closestDistanceSquared = Float.POSITIVE_INFINITY;
                 int closestIndex = -1;
 
                 float closestMinX = 0f;
@@ -163,11 +163,11 @@ public class BVH implements Aab {
                     float dY = centerY - otherCenterY;
                     float dZ = centerZ - otherCenterZ;
 
-                    float distance = (float) Math.sqrt((dX * dX) + (dY * dY) + (dZ * dZ));
+                    float distanceSquared = (dX * dX) + (dY * dY) + (dZ * dZ);
 
-                    if (distance < closestDistance) {
+                    if (distanceSquared < closestDistanceSquared) {
                         closest = other;
-                        closestDistance = distance;
+                        closestDistanceSquared = distanceSquared;
                         closestIndex = j;
 
                         closestMinX = otherMinX;

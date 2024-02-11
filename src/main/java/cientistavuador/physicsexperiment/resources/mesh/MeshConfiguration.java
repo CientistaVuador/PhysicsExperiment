@@ -32,14 +32,11 @@ package cientistavuador.physicsexperiment.resources.mesh;
  */
 public class MeshConfiguration {
     
-    public static final float EPSILON = 0.000001f;
-    
     public static MeshConfiguration nothing(String name) {
         return new MeshConfiguration(
                 name,
                 false,
-                false, 0, 0, 0, 
-                0
+                false, 0, 0, 0
         );
     }
     
@@ -47,8 +44,7 @@ public class MeshConfiguration {
         return new MeshConfiguration(
                 name,
                 true,
-                false, 0, 0, 0,
-                EPSILON
+                false, 0, 0, 0
         );
     }
     
@@ -56,8 +52,7 @@ public class MeshConfiguration {
         return new MeshConfiguration(
                 name,
                 false,
-                true, aoSize, aoRays, rayOffset,
-                EPSILON
+                true, aoSize, aoRays, rayOffset
         );
     }
     
@@ -75,7 +70,6 @@ public class MeshConfiguration {
     private final float vertexAOSize;
     private final int vertexAORays;
     private final float vertexAORayOffset;
-    private final float epsilonDistance;
     
     public MeshConfiguration(
             String name,
@@ -83,8 +77,7 @@ public class MeshConfiguration {
             boolean vertexAO,
             float vertexAOSize,
             int vertexAORays,
-            float vertexAORayOffset,
-            float epsilonDistance
+            float vertexAORayOffset
     ) {
         this.name = name;
         this.lightmapped = lightmapped;
@@ -92,7 +85,6 @@ public class MeshConfiguration {
         this.vertexAOSize = vertexAOSize;
         this.vertexAORays = vertexAORays;
         this.vertexAORayOffset = vertexAORayOffset;
-        this.epsilonDistance = epsilonDistance;
     }
     
     public String getName() {
@@ -117,9 +109,5 @@ public class MeshConfiguration {
 
     public float getVertexAORayOffset() {
         return vertexAORayOffset;
-    }
-    
-    public float getEpsilonDistance() {
-        return epsilonDistance;
     }
 }

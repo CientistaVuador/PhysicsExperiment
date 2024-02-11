@@ -194,9 +194,9 @@ public class BakedLighting {
         return status;
     }
 
-    public static Status bake(BakedLightingOutput output, Scene scene, float pixelToWorldRatio) {
+    public static Status bake(BakedLightingOutput output, Scene scene) {
         Status status = new Status();
-        BakedLighting baked = new BakedLighting(output, scene, pixelToWorldRatio, status);
+        BakedLighting baked = new BakedLighting(output, scene, status);
         status.task = CompletableFuture.runAsync(() -> {
             try {
                 baked.bake();
@@ -393,13 +393,13 @@ public class BakedLighting {
     private ColorBuffer directColorBuffer = null;
     private GrayBuffer reverseShadowBuffer = null;
 
-    private BakedLighting(BakedLightingOutput output, Scene scene, float pixelToWorldRatio, Status status) {
+    private BakedLighting(BakedLightingOutput output, Scene scene, Status status) {
         this.output = output;
         this.scene = scene;
         this.geometries = scene.getGeometries();
         this.lightmapMeshes = new MeshData.LightmapMesh[this.geometries.size()];
         this.lightGroups = new ArrayList<>();
-        this.pixelToWorldRatio = pixelToWorldRatio;
+        this.pixelToWorldRatio = scene.getPixelToWorldRatio();
         this.status = status;
         this.samplingMode = scene.getSamplingMode();
         this.fastMode = scene.isFastModeEnabled();
@@ -1562,7 +1562,7 @@ public class BakedLighting {
             }
         };
 
-        MarginAutomata.generateMargin(io, LightmapUVs.MARGIN * 10);
+        MarginAutomata.generateMargin(io, 3 + LightmapUVs.MARGIN);
     }
 
     private void outputLightmap() {
