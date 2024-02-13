@@ -59,7 +59,7 @@ public class PlayerController {
     public static final float CROUCH_SPEED = 1.75f;
 
     public static final float JUMP_SPEED = 8f;
-    public static final float CROUCH_JUMP_SPEED = 5f;
+    public static final float CROUCH_JUMP_SPEED = 6f;
 
     public static final float OUT_OF_GROUND_SPEED_FACTOR = 0.5f;
 
@@ -208,8 +208,8 @@ public class PlayerController {
             calculateWalkDirection(frontVector, rightVector);
 
             this.characterController.setWalkDirection(
-                    this.walkDirectionX * (this.characterController.isCrouched() ? CROUCH_SPEED : WALK_SPEED),
-                    this.walkDirectionZ * (this.characterController.isCrouched() ? CROUCH_SPEED : WALK_SPEED)
+                    this.walkDirectionX * (this.characterController.isCrouched() && this.characterController.onGroundOrWillBe() ? CROUCH_SPEED : WALK_SPEED),
+                    this.walkDirectionZ * (this.characterController.isCrouched() && this.characterController.onGroundOrWillBe() ? CROUCH_SPEED : WALK_SPEED)
             );
         } else {
             this.walkDirectionX = 0f;

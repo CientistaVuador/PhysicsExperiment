@@ -27,6 +27,7 @@
 package cientistavuador.physicsexperiment.popups;
 
 import cientistavuador.physicsexperiment.Main;
+import cientistavuador.physicsexperiment.Platform;
 import cientistavuador.physicsexperiment.util.bakedlighting.SamplingMode;
 import cientistavuador.physicsexperiment.util.bakedlighting.Scene;
 import java.awt.Image;
@@ -147,7 +148,9 @@ public class BakePopup extends javax.swing.JFrame {
             popup.setLocation((Main.WINDOW_X + (Main.WINDOW_WIDTH / 2)) - (popup.getWidth() / 2), (Main.WINDOW_Y + (Main.WINDOW_HEIGHT / 2)) - (popup.getHeight() / 2));
             popup.setVisible(true);
             popup.toFront();
-            popup.setAlwaysOnTop(true);
+            if (Platform.isWindows()) {
+                popup.setAlwaysOnTop(true);
+            }
         });
     }
 

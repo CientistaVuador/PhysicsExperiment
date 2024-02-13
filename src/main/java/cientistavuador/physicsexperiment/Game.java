@@ -31,6 +31,7 @@ import cientistavuador.physicsexperiment.characterphysics.PlayerController;
 import cientistavuador.physicsexperiment.debug.AabRender;
 import cientistavuador.physicsexperiment.debug.LineRender;
 import cientistavuador.physicsexperiment.geometry.Geometries;
+import cientistavuador.physicsexperiment.geometry.GeometriesLoader;
 import cientistavuador.physicsexperiment.geometry.Geometry;
 import cientistavuador.physicsexperiment.popups.BakePopup;
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
@@ -48,7 +49,6 @@ import cientistavuador.physicsexperiment.util.bakedlighting.BakedLighting;
 import cientistavuador.physicsexperiment.util.raycast.RayResult;
 import cientistavuador.physicsexperiment.util.bakedlighting.SamplingMode;
 import cientistavuador.physicsexperiment.util.bakedlighting.Scene;
-import cientistavuador.physicsexperiment.util.raycast.BVH;
 import com.jme3.bullet.PhysicsSpace;
 import com.jme3.bullet.collision.shapes.CollisionShape;
 import com.jme3.bullet.collision.shapes.MeshCollisionShape;
@@ -61,8 +61,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.FloatBuffer;
-import java.nio.file.Files;
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -248,13 +246,13 @@ public class Game {
 
         geometry.setLightmapMesh(mesh);
     }
-
+    
     public void start() {
         this.physicsSpace.setMaxSubSteps(4);
         this.physicsSpace.setAccuracy(1f / 120f);
-
+        
         this.player.getCharacterController().addToPhysicsSpace(this.physicsSpace);
-
+        
         resetPlayer();
 
         //this.monkeyGeometry.setModel(new Matrix4f().translate(0, 20, 0));
@@ -282,6 +280,8 @@ public class Game {
         loadLightmap(this.scene.getGeometries().get(2), "bricks.lightmap");
         loadLightmap(this.scene.getGeometries().get(3), "red.lightmap");
         this.geometryLightmaps.clear();
+        
+        
         
         this.scene.setIndirectLightingEnabled(true);
         this.scene.setDirectLightingEnabled(true);

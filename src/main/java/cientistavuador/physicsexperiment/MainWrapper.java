@@ -69,22 +69,22 @@ public class MainWrapper {
 
         String osName = System.getProperty("os.name");
         System.out.println("Running on " + osName);
-
+        
         try {
-            if (osName.contains("nix") || osName.contains("nux") || osName.contains("aix")) {
+            if (Platform.isLinux()) {
                 org.lwjgl.system.Configuration.LIBRARY_PATH.set(
                         Natives.extract("natives_linux.zip", "linux")
                                 .toAbsolutePath()
                                 .toString()
                 );
-            } else if (osName.contains("mac")) {
+            } else if (Platform.isMacOSX()) {
                 org.lwjgl.system.Configuration.LIBRARY_PATH.set(
                         Natives.extract("natives_macos.zip", "macos")
                                 .toAbsolutePath()
                                 .toString()
                 );
             }
-
+            
             PhysicsRigidBody.logger2.setLevel(Level.WARNING);
             NativeLibraryLoader.loadLibbulletjme(
                     true,
