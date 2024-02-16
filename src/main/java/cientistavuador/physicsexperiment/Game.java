@@ -34,6 +34,7 @@ import cientistavuador.physicsexperiment.geometry.Geometries;
 import cientistavuador.physicsexperiment.geometry.GeometriesLoader;
 import cientistavuador.physicsexperiment.geometry.Geometry;
 import cientistavuador.physicsexperiment.popups.BakePopup;
+import cientistavuador.physicsexperiment.resources.mesh.MeshConfiguration;
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
 import cientistavuador.physicsexperiment.shader.GeometryProgram;
 import cientistavuador.physicsexperiment.text.GLFontRenderer;
@@ -213,7 +214,7 @@ public class Game {
 
     private final PlayerController player = new PlayerController();
     private boolean playerActive = false;
-    
+
     private Game() {
 
     }
@@ -246,13 +247,13 @@ public class Game {
 
         geometry.setLightmapMesh(mesh);
     }
-    
+
     public void start() {
         this.physicsSpace.setMaxSubSteps(4);
         this.physicsSpace.setAccuracy(1f / 120f);
-        
+
         this.player.getCharacterController().addToPhysicsSpace(this.physicsSpace);
-        
+
         resetPlayer();
 
         //this.monkeyGeometry.setModel(new Matrix4f().translate(0, 20, 0));
@@ -280,7 +281,7 @@ public class Game {
         loadLightmap(this.scene.getGeometries().get(2), "bricks.lightmap");
         loadLightmap(this.scene.getGeometries().get(3), "red.lightmap");
         this.geometryLightmaps.clear();
-        
+
         
         
         this.scene.setIndirectLightingEnabled(true);
@@ -293,7 +294,7 @@ public class Game {
         this.scene.setSamplingMode(SamplingMode.SAMPLE_16);
 
         this.scene.setFastModeEnabled(false);
-        
+
         sun.setGroupName("sun");
         this.scene.getLights().add(sun);
 

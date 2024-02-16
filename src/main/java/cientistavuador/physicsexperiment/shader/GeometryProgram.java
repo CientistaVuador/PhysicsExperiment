@@ -271,6 +271,7 @@ public class GeometryProgram {
                 for (int i = 0; i < lightmapLength; i++) {
                     lightmapColor += texture(lightmap, vec3(lightmapUv, float(i))).rgb * bakedLightGroups[i];
                 }
+                lightmapColor *= ambientOcclusion;
                 vec4 textureColor = texture(tex, uv);
                 
                 textureColor = vec4(pow(textureColor.rgb * color.rgb, vec3(gamma)), textureColor.a * color.a);

@@ -65,7 +65,7 @@ public class PlayerController {
 
     private static final float INVERSE_SQRT_2 = (float) (1.0 / Math.sqrt(2.0));
 
-    public static final float NOCLIP_SPEED = 4.5f;
+    public static final float NOCLIP_SPEED = 6.5f;
     public static final float NOCLIP_RUN_SPEED = 13f;
 
     private final CharacterController characterController;
