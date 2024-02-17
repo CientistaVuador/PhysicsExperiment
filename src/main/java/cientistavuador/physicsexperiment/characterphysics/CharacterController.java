@@ -44,22 +44,22 @@ import org.joml.Vector3fc;
 
 /**
  * this is a nightmare
+ *
  * @author Cien
  */
 public class CharacterController implements PhysicsTickListener {
 
     public static final float EPSILON = 0.00001f;
 
-    public static final float EXTERNAL_Y_THRESHOLD = 2f;
-    public static final float GROUND_PULL_EPSILON = 0.0001f;
+    public static final float GROUND_PULL_EXTERNAL_Y_VELOCITY_THRESHOLD = 2f;
     public static final float CLIMB_SLOPE_EPSILON = 0.0001f;
     public static final float CLIMB_SLOPE_EXTRA_HEIGHT = 0.04f;
-    public static final int CLIMB_SLOPE_MAX_PREVIEW_FRAMES = 24;
+    public static final int CLIMB_SLOPE_MAX_PREVIEW_FRAMES = 16;
 
     public static final float UNCROUCH_TEST_OFFSET = 0.04f;
     public static final float GROUND_TEST_OFFSET = 0.075f;
     public static final float GROUND_NORMAL_RAY_OFFSET = 1f;
-    public static final float GRAVITY_CUTOFF_TIME = 0.25f;
+    public static final float GRAVITY_CUTOFF_TIME = 0.1f;
 
     public static final float WALL_NORMAL_CHECK_CONFIDENCE = 0.75f;
     public static final float WALL_NORMAL_CHECK_Y_OFFSET = 0.01f;
@@ -89,8 +89,8 @@ public class CharacterController implements PhysicsTickListener {
     private final CollisionShape collisionShape;
     private final CollisionShape crouchCollisionShape;
 
-    private final BoxCollisionShape rawCollisionShape;
-    private final BoxCollisionShape rawCrouchCollisionShape;
+    private final BoxCollisionShape collisionShapeRaw;
+    private final BoxCollisionShape crouchCollisionShapeRaw;
 
     private final PhysicsRigidBody rigidBody;
     private final PhysicsGhostObject groundTest;
@@ -133,7 +133,7 @@ public class CharacterController implements PhysicsTickListener {
     private float slopeThreshold = 0.75f;
 
     private float airFriction = 1f;
-    private float groundFriction = 4f;
+    private float groundFriction = 6f;
 
     private float maxGroundPullDistance = 0.60f;
     private float groundPullTime = 0.0375f;
@@ -188,6 +188,9 @@ public class CharacterController implements PhysicsTickListener {
     private float gravityGroundCounter = 0f;
 
     //recycled objects
+    private final com.jme3.math.Transform groundPullStart = new Transform();
+    private final com.jme3.math.Transform groundPullEnd = new Transform();
+
     private final com.jme3.math.Vector3f velocityApply = new com.jme3.math.Vector3f();
 
     private final com.jme3.math.Vector3f velocityGetJme = new com.jme3.math.Vector3f();
@@ -227,7 +230,7 @@ public class CharacterController implements PhysicsTickListener {
             CompoundCollisionShape compound = new CompoundCollisionShape(1);
             compound.addChildShape(box, 0f, totalHeight * 0.5f, 0f);
             this.collisionShape = compound;
-            this.rawCollisionShape = box;
+            this.collisionShapeRaw = box;
         }
 
         {
@@ -235,7 +238,7 @@ public class CharacterController implements PhysicsTickListener {
             CompoundCollisionShape compound = new CompoundCollisionShape(1);
             compound.addChildShape(box, 0f, crouchTotalHeight * 0.5f, 0f);
             this.crouchCollisionShape = compound;
-            this.rawCrouchCollisionShape = box;
+            this.crouchCollisionShapeRaw = box;
         }
 
         this.rigidBody = new PhysicsRigidBody(this.collisionShape, mass);
@@ -330,6 +333,28 @@ public class CharacterController implements PhysicsTickListener {
 
     public CollisionShape getCrouchCollisionShape() {
         return this.crouchCollisionShape;
+    }
+
+    public CollisionShape getCurrentCollisionShape() {
+        if (isCrouched()) {
+            return getCrouchCollisionShape();
+        }
+        return getCollisionShape();
+    }
+
+    public BoxCollisionShape getRawCollisionShape() {
+        return collisionShapeRaw;
+    }
+
+    public BoxCollisionShape getRawCrouchCollisionShape() {
+        return crouchCollisionShapeRaw;
+    }
+
+    public BoxCollisionShape getRawCurrentCollisionShape() {
+        if (isCrouched()) {
+            return getRawCrouchCollisionShape();
+        }
+        return getRawCollisionShape();
     }
 
     public PhysicsRigidBody getRigidBody() {
@@ -483,22 +508,18 @@ public class CharacterController implements PhysicsTickListener {
         this.groundPullTime = groundPullTime;
     }
 
-    public float getMaxSlopeClimbDistance() {
-        return maxSlopeClimbDistance;
-    }
-
-    public void setMaxSlopeClimbDistance(float maxSlopeClimbDistance) {
-        this.maxSlopeClimbDistance = maxSlopeClimbDistance;
-    }
-
-    public float getSlopeClimbTime() {
-        return slopeClimbTime;
-    }
-
-    public void setSlopeClimbTime(float slopeClimbTime) {
-        this.slopeClimbTime = slopeClimbTime;
-    }
-
+    //public float getMaxSlopeClimbDistance() {
+    //    return maxSlopeClimbDistance;
+    //}
+    //public void setMaxSlopeClimbDistance(float maxSlopeClimbDistance) {
+    //    this.maxSlopeClimbDistance = maxSlopeClimbDistance;
+    //}
+    //public float getSlopeClimbTime() {
+    //    return slopeClimbTime;
+    //}
+    //public void setSlopeClimbTime(float slopeClimbTime) {
+    //    this.slopeClimbTime = slopeClimbTime;
+    //}
     public void jump(float speed) {
         this.nextJumpImpulse += speed;
     }
@@ -518,34 +539,6 @@ public class CharacterController implements PhysicsTickListener {
         }
     }
 
-    private boolean isGroundNormalInsideThreshold() {
-        return this.groundNormal.dot(0f, 1f, 0f) >= this.slopeThreshold;
-    }
-
-    private void setGhostPositions() {
-        Vector3fc position = getPosition();
-
-        int stack = 0;
-
-        this.groundTest.setPhysicsLocation(this.vectorsStack[stack++].set(
-                position.x(), position.y(), position.z()
-        ));
-
-        this.uncrouchTest.setPhysicsLocation(this.vectorsStack[stack++].set(
-                position.x(), position.y() + UNCROUCH_TEST_OFFSET, position.z()
-        ));
-
-        this.airUncrouchTest.setPhysicsLocation(this.vectorsStack[stack++].set(
-                position.x(), (position.y() - UNCROUCH_TEST_OFFSET) - (this.totalHeight - this.crouchTotalHeight), position.z()
-        ));
-    }
-
-    private void applyVelocity(float x, float y, float z) {
-        float mass = this.rigidBody.getMass();
-        this.velocityApply.set(x * mass, y * mass, z * mass);
-        this.rigidBody.applyCentralImpulse(this.velocityApply);
-    }
-
     private Vector3fc rigidBodyVelocity() {
         this.rigidBody.getLinearVelocity(this.velocityGetJme);
         this.velocityGet.set(
@@ -556,63 +549,54 @@ public class CharacterController implements PhysicsTickListener {
         return this.velocityGet;
     }
 
-    private Vector3fc spaceGravity(PhysicsSpace space) {
-        space.getGravity(this.spaceGravity);
-        this.spaceGravityGet.set(
-                this.spaceGravity.x,
-                this.spaceGravity.y,
-                this.spaceGravity.z
-        );
-        return this.spaceGravityGet;
+    private void checkNoclipState() {
+        if (this.noclipStateChanged) {
+            this.rigidBody.setContactResponse(!this.noclipEnabled);
+            this.rigidBody.setKinematic(this.noclipEnabled);
+
+            if (this.noclipEnabled) {
+                this.rigidBody.setLinearVelocity(com.jme3.math.Vector3f.ZERO);
+
+                this.walkX = 0f;
+                this.walkY = 0f;
+                this.walkZ = 0f;
+
+                this.jump = 0f;
+
+                this.gravityX = 0f;
+                this.gravityY = 0f;
+                this.gravityZ = 0f;
+            }
+        }
     }
 
-    private com.jme3.math.Vector3f getGroundNormal(PhysicsSpace space, Vector3fc position, float offsetX, float offsetY, float offsetZ) {
-        List<PhysicsRayTestResult> results = space.rayTest(
-                this.rayPositionA.set(
-                        position.x() + offsetX,
-                        position.y() + offsetY + GROUND_NORMAL_RAY_OFFSET,
-                        position.z() + offsetZ
-                ),
-                this.rayPositionB.set(
-                        position.x() + offsetX,
-                        position.y() + offsetY - GROUND_NORMAL_RAY_OFFSET,
-                        position.z() + offsetZ
-                )
-        );
-        com.jme3.math.Vector3f result = null;
-        for (PhysicsRayTestResult e : results) {
-            if (e == null || e.getCollisionObject().equals(this.rigidBody) || e.getCollisionObject() instanceof PhysicsGhostObject) {
-                continue;
-            }
-            result = e.getHitNormalLocal(this.rayNormal);
-            break;
-        }
-        return result;
+    private boolean isGroundNormalInsideThreshold() {
+        return this.groundNormal.dot(0f, 1f, 0f) >= this.slopeThreshold;
     }
 
     private void pullToTheGround(PhysicsSpace space, float timeStep) {
+        int stack = 0;
+
         this.pullingToTheGround = false;
 
-        Vector3fc currentPosition = getPosition();
-
-        com.jme3.math.Vector3f startPosition = new com.jme3.math.Vector3f(
-                currentPosition.x(), currentPosition.y() + (getHeight() * 0.5f), currentPosition.z()
-        );
-        com.jme3.math.Vector3f finalPosition = new com.jme3.math.Vector3f(
-                currentPosition.x(), (currentPosition.y() + (getHeight() * 0.5f)) - this.maxGroundPullDistance, currentPosition.z()
-        );
-        Transform start = new Transform().setTranslation(startPosition);
-        Transform end = new Transform().setTranslation(finalPosition);
-
-        BoxCollisionShape currentShape;
-        if (isCrouched()) {
-            currentShape = this.rawCrouchCollisionShape;
-        } else {
-            currentShape = this.rawCollisionShape;
+        if (Math.abs(this.jump) > EPSILON
+                || Math.abs(this.gravityY) > EPSILON
+                || Math.abs(this.externalY) > GROUND_PULL_EXTERNAL_Y_VELOCITY_THRESHOLD
+                || !isGroundNormalInsideThreshold()) {
+            return;
         }
 
-        List<PhysicsSweepTestResult> results = space.sweepTest(currentShape, start, end, new ArrayList<>(), 0f);
+        //if (this.climblingSlope || this.climbSlopeFrame > 0) {
+        //    return;
+        //}
+        Vector3fc currentPosition = getPosition();
 
+        com.jme3.math.Vector3f startPosition = this.vectorsStack[stack++].set(currentPosition.x(), currentPosition.y() + (getHeight() * 0.5f), currentPosition.z());
+        com.jme3.math.Vector3f endPosition = this.vectorsStack[stack++].set(currentPosition.x(), (currentPosition.y() + (getHeight() * 0.5f)) - this.maxGroundPullDistance, currentPosition.z());
+        this.groundPullStart.setTranslation(startPosition);
+        this.groundPullEnd.setTranslation(endPosition);
+
+        List<PhysicsSweepTestResult> results = space.sweepTest(getRawCurrentCollisionShape(), this.groundPullStart, this.groundPullEnd, new ArrayList<>(), 0f);
         results.sort((o1, o2) -> Float.compare(o1.getHitFraction(), o2.getHitFraction()));
 
         PhysicsSweepTestResult closest = null;
@@ -629,38 +613,22 @@ public class CharacterController implements PhysicsTickListener {
             return;
         }
 
-        this.pullingToTheGround = true;
-
-        float newY = (startPosition.y * (1f - closest.getHitFraction())) + (finalPosition.y * closest.getHitFraction());
+        float newY = (startPosition.y * (1f - closest.getHitFraction())) + (endPosition.y * closest.getHitFraction());
         newY -= getHeight() * 0.5f;
 
         float height = newY - currentPosition.y();
 
-        if (Math.abs(height) < GROUND_PULL_EPSILON) {
+        if (Math.abs(height) < EPSILON) {
             return;
         }
 
-        float walkSquaredLength = (this.walkX * this.walkX) + (this.walkY * this.walkY) + (this.walkZ * this.walkZ);
-        if (walkSquaredLength < EPSILON) {
-            return;
-        }
+        this.pullingToTheGround = true;
 
-        if (Math.abs(this.jump) > EPSILON
-                || Math.abs(this.gravityY) > EPSILON
-                || Math.abs(this.externalY) > EXTERNAL_Y_THRESHOLD
-                || !isGroundNormalInsideThreshold()) {
-            return;
-        }
-
-        if (this.climblingSlope || this.climbSlopeFrame > 0) {
-            return;
-        }
-        
         float speed = height / this.groundPullTime;
         if (timeStep > this.groundPullTime) {
             speed = height / timeStep;
         }
-        
+
         setPosition(
                 currentPosition.x(),
                 currentPosition.y() + (speed * timeStep),
@@ -701,9 +669,9 @@ public class CharacterController implements PhysicsTickListener {
 
         BoxCollisionShape currentRawShape;
         if (isCrouched()) {
-            currentRawShape = this.rawCrouchCollisionShape;
+            currentRawShape = this.crouchCollisionShapeRaw;
         } else {
-            currentRawShape = this.rawCollisionShape;
+            currentRawShape = this.collisionShapeRaw;
         }
 
         List<PhysicsSweepTestResult> results = space.sweepTest(currentRawShape, start, end, new ArrayList<>(), 0f);
@@ -792,9 +760,9 @@ public class CharacterController implements PhysicsTickListener {
                     position.z() + (right.z() * offset)
             );
             to.set(
-                    position.x() + (right.x() * offset) + (walkDir.x() * getRadius() * 4f),
-                    position.y() + (right.y() * offset) + (walkDir.y() * getRadius() * 4f) + WALL_NORMAL_CHECK_Y_OFFSET,
-                    position.z() + (right.z() * offset) + (walkDir.z() * getRadius() * 4f)
+                    position.x() + (right.x() * offset) + (walkDir.x() * getRadius() * 3f),
+                    position.y() + (right.y() * offset) + (walkDir.y() * getRadius() * 3f) + WALL_NORMAL_CHECK_Y_OFFSET,
+                    position.z() + (right.z() * offset) + (walkDir.z() * getRadius() * 3f)
             );
             int result = isWallNormalValid(space, from, to);
             if (result == -1) {
@@ -816,6 +784,10 @@ public class CharacterController implements PhysicsTickListener {
     private void climbSlope(PhysicsSpace space, float timeStep) {
         this.climblingSlope = false;
 
+        if (this.climbSlopeFrame > 0) {
+            return;
+        }
+
         float walkSquaredLength = (this.walkX * this.walkX) + (this.walkY * this.walkY) + (this.walkZ * this.walkZ);
         if (walkSquaredLength < (EPSILON * EPSILON)) {
             return;
@@ -823,7 +795,7 @@ public class CharacterController implements PhysicsTickListener {
 
         if (Math.abs(this.jump) > EPSILON
                 || Math.abs(this.gravityY) > EPSILON
-                || Math.abs(this.externalY) > EXTERNAL_Y_THRESHOLD) {
+                || Math.abs(this.externalY) > GROUND_PULL_EXTERNAL_Y_VELOCITY_THRESHOLD) {
             return;
         }
 
@@ -855,20 +827,22 @@ public class CharacterController implements PhysicsTickListener {
                 currentPosition.y() + this.climbSlopeHeight,
                 currentPosition.z()
         );
-        
-        for (int i = 1; i < this.climbSlopeFrame; i++) {
-            applyWalk(timeStep);
-        }
-        
+
         this.climblingSlope = true;
     }
 
     private void checkIfShouldCrouch() {
-        if (this.crouchStateChanged) {
-            if (this.crouched && this.canUncrouch) {
+        if (!this.crouchStateChanged) {
+            return;
+        }
+
+        if (isCrouched()) {
+            if (this.canUncrouch) {
                 this.rigidBody.setCollisionShape(this.collisionShape);
                 this.crouchStateChanged = false;
                 this.crouched = false;
+                this.airCrouched = false;
+
                 if (this.airCrouched && this.canAirUncrouch) {
                     Vector3fc position = getPosition();
                     this.rigidBody.setPhysicsLocation(this.vectorsStack[0].set(
@@ -877,24 +851,66 @@ public class CharacterController implements PhysicsTickListener {
                             position.z()
                     ));
                 }
+            }
+        } else {
+            this.rigidBody.setCollisionShape(this.crouchCollisionShape);
+            this.crouchStateChanged = false;
+            this.crouched = true;
+
+            if (!onGround()) {
+                Vector3fc position = getPosition();
+                this.rigidBody.setPhysicsLocation(this.vectorsStack[0].set(
+                        position.x(),
+                        position.y() + (this.totalHeight - this.crouchTotalHeight),
+                        position.z()
+                ));
+                this.airCrouched = true;
+            } else {
                 this.airCrouched = false;
-            } else if (!this.crouched) {
-                this.rigidBody.setCollisionShape(this.crouchCollisionShape);
-                if (!onGround()) {
-                    Vector3fc position = getPosition();
-                    this.rigidBody.setPhysicsLocation(this.vectorsStack[0].set(
-                            position.x(),
-                            position.y() + (this.totalHeight - this.crouchTotalHeight),
-                            position.z()
-                    ));
-                    this.airCrouched = true;
-                } else {
-                    this.airCrouched = false;
-                }
-                this.crouchStateChanged = false;
-                this.crouched = true;
             }
         }
+    }
+
+    private void setGhostPositions() {
+        Vector3fc position = getPosition();
+
+        int stack = 0;
+
+        this.groundTest.setPhysicsLocation(this.vectorsStack[stack++].set(
+                position.x(), position.y(), position.z()
+        ));
+
+        this.uncrouchTest.setPhysicsLocation(this.vectorsStack[stack++].set(
+                position.x(), position.y() + UNCROUCH_TEST_OFFSET, position.z()
+        ));
+
+        this.airUncrouchTest.setPhysicsLocation(this.vectorsStack[stack++].set(
+                position.x(), (position.y() - UNCROUCH_TEST_OFFSET) - (this.totalHeight - this.crouchTotalHeight), position.z()
+        ));
+    }
+
+    private com.jme3.math.Vector3f getGroundNormal(PhysicsSpace space, Vector3fc position, float offsetX, float offsetY, float offsetZ) {
+        List<PhysicsRayTestResult> results = space.rayTest(
+                this.rayPositionA.set(
+                        position.x() + offsetX,
+                        position.y() + offsetY + GROUND_NORMAL_RAY_OFFSET,
+                        position.z() + offsetZ
+                ),
+                this.rayPositionB.set(
+                        position.x() + offsetX,
+                        position.y() + offsetY - GROUND_NORMAL_RAY_OFFSET,
+                        position.z() + offsetZ
+                )
+        );
+        com.jme3.math.Vector3f result = null;
+        for (PhysicsRayTestResult e : results) {
+            if (e == null || e.getCollisionObject().equals(this.rigidBody) || e.getCollisionObject() instanceof PhysicsGhostObject) {
+                continue;
+            }
+            result = e.getHitNormalLocal(this.rayNormal);
+            break;
+        }
+        return result;
     }
 
     private void findGroundNormal(PhysicsSpace space) {
@@ -962,6 +978,12 @@ public class CharacterController implements PhysicsTickListener {
         }
     }
 
+    private void applyVelocity(float x, float y, float z) {
+        float mass = this.rigidBody.getMass();
+        this.velocityApply.set(x * mass, y * mass, z * mass);
+        this.rigidBody.applyCentralImpulse(this.velocityApply);
+    }
+
     private void applyWalk(float timeStep) {
         float movementRoughness = (onGroundOrWillBe() ? getGroundMovementRoughness() : getAirMovementRoughness());
 
@@ -998,6 +1020,16 @@ public class CharacterController implements PhysicsTickListener {
         applyVelocity(0f, this.nextJumpImpulse, 0f);
         this.appliedJump = this.nextJumpImpulse;
         this.nextJumpImpulse = 0f;
+    }
+
+    private Vector3fc spaceGravity(PhysicsSpace space) {
+        space.getGravity(this.spaceGravity);
+        this.spaceGravityGet.set(
+                this.spaceGravity.x,
+                this.spaceGravity.y,
+                this.spaceGravity.z
+        );
+        return this.spaceGravityGet;
     }
 
     private void applyGravity(PhysicsSpace space, float timeStep) {
@@ -1076,17 +1108,13 @@ public class CharacterController implements PhysicsTickListener {
 
     @Override
     public void prePhysicsTick(PhysicsSpace space, float timeStep) {
-        if (this.noclipStateChanged) {
-            this.rigidBody.setContactResponse(!this.noclipEnabled);
-            this.rigidBody.setKinematic(this.noclipEnabled);
-        }
+        checkNoclipState();
 
         if (this.noclipEnabled) {
             return;
         }
 
-        decreaseClimbSlopeFrames();
-
+        //decreaseClimbSlopeFrames();
         pullToTheGround(space, timeStep);
         checkIfShouldCrouch();
 
@@ -1102,12 +1130,12 @@ public class CharacterController implements PhysicsTickListener {
 
         calculateTotalVelocities();
 
-        climbSlope(space, timeStep);
-        if (this.climblingSlope) {
-            setGhostPositions();
-            findGroundNormal(space);
-            calculateGroundOrientedDirection();
-        }
+        //climbSlope(space, timeStep);
+        //if (this.climblingSlope) {
+        //    setGhostPositions();
+        //    findGroundNormal(space);
+        //    calculateGroundOrientedDirection();
+        //}
     }
 
     private boolean checkGhostCollision(PhysicsSpace space, PhysicsGhostObject p) {
