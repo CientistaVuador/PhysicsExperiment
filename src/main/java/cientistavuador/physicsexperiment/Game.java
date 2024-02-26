@@ -34,7 +34,6 @@ import cientistavuador.physicsexperiment.geometry.Geometries;
 import cientistavuador.physicsexperiment.geometry.GeometriesLoader;
 import cientistavuador.physicsexperiment.geometry.Geometry;
 import cientistavuador.physicsexperiment.popups.BakePopup;
-import cientistavuador.physicsexperiment.resources.mesh.MeshConfiguration;
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
 import cientistavuador.physicsexperiment.shader.GeometryProgram;
 import cientistavuador.physicsexperiment.text.GLFontRenderer;

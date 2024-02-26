@@ -84,7 +84,7 @@ public class PlayerController {
 
         this.eyePosition
                 .set(pos)
-                .add(0f, this.characterController.getHeight() + EYE_OFFSET, 0f);
+                .add(0f, this.characterController.getCurrentHeight() + EYE_OFFSET, 0f);
 
         return this.eyePosition;
     }
