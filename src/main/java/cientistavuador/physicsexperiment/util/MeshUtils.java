@@ -26,19 +26,31 @@
  */
 package cientistavuador.physicsexperiment.util;
 
+import cientistavuador.physicsexperiment.Main;
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
 import cientistavuador.physicsexperiment.util.bakedlighting.LightmapUVs;
 import com.jme3.bullet.collision.shapes.BoxCollisionShape;
 import com.jme3.bullet.collision.shapes.CapsuleCollisionShape;
 import com.jme3.bullet.collision.shapes.CollisionShape;
+import com.jme3.bullet.collision.shapes.CompoundCollisionShape;
 import com.jme3.bullet.collision.shapes.CylinderCollisionShape;
+import com.jme3.bullet.collision.shapes.HullCollisionShape;
+import com.jme3.bullet.collision.shapes.MeshCollisionShape;
 import com.jme3.bullet.collision.shapes.SphereCollisionShape;
+import com.jme3.bullet.collision.shapes.infos.IndexedMesh;
 import com.jme3.bullet.util.DebugShapeFactory;
+import com.jme3.util.BufferUtils;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.joml.Matrix4fc;
 import org.joml.Vector3f;
+import vhacd4.Vhacd4;
+import vhacd4.Vhacd4Hull;
+import vhacd4.Vhacd4Parameters;
 
 /**
  *
@@ -320,7 +332,85 @@ public class MeshUtils {
     public static void vertexAO(float[] vertices, int vertexSize, int xyzOffset, int outAoOffset, float aoSize, int aoRays, float rayOffset) {
         VertexAO.vertexAO(vertices, vertexSize, xyzOffset, outAoOffset, aoSize, aoRays, rayOffset);
     }
-
+    
+    private static Pair<float[], int[]> transformAndReindex(float[][] vertices, int[][] indices, Matrix4fc[] models, int vertexSize, int xyzOffset) {
+        float[] collisionVertices = new float[64];
+        int collisionVerticesIndex = 0;
+        
+        Vector3f vertexPosition = new Vector3f();
+        
+        for (int mesh = 0; mesh < vertices.length; mesh++) {
+            float[] meshVertices = vertices[mesh];
+            int[] meshIndices = indices[mesh];
+            Matrix4fc meshModel = models[mesh];
+            
+            float[] unindexedVertices = unindex(meshVertices, meshIndices, vertexSize).getA();
+            
+            for (int v = 0; v < unindexedVertices.length; v += vertexSize) {
+                vertexPosition.set(
+                        unindexedVertices[v + xyzOffset + 0],
+                        unindexedVertices[v + xyzOffset + 1],
+                        unindexedVertices[v + xyzOffset + 2]
+                );
+                meshModel.transformProject(vertexPosition);
+                if ((collisionVerticesIndex + 3) > collisionVertices.length) {
+                    collisionVertices = Arrays.copyOf(collisionVertices, collisionVertices.length * 2 + 3);
+                }
+                collisionVertices[collisionVerticesIndex + 0] = vertexPosition.x() * Main.TO_PHYSICS_ENGINE_UNITS;
+                collisionVertices[collisionVerticesIndex + 1] = vertexPosition.y() * Main.TO_PHYSICS_ENGINE_UNITS;
+                collisionVertices[collisionVerticesIndex + 2] = vertexPosition.z() * Main.TO_PHYSICS_ENGINE_UNITS;
+                collisionVerticesIndex += 3;
+            }
+        }
+        
+        collisionVertices = Arrays.copyOf(collisionVertices, collisionVerticesIndex);
+        
+        return generateIndices(collisionVertices, 3);
+    }
+    
+    public static MeshCollisionShape createStaticCollisionShapeFromMeshes(float[][] vertices, int[][] indices, Matrix4fc[] models, int vertexSize, int xyzOffset) {
+        Pair<float[], int[]> indexedCollisionVerticesPair = transformAndReindex(vertices, indices, models, vertexSize, xyzOffset);
+        
+        float[] indexedCollisionVertices = indexedCollisionVerticesPair.getA();
+        int[] indexedCollisionIndices = indexedCollisionVerticesPair.getB();
+        
+        FloatBuffer verticesBuffer = BufferUtils
+                .createFloatBuffer(indexedCollisionVertices.length)
+                .put(indexedCollisionVertices)
+                .flip()
+                ;
+        IntBuffer indicesBuffer = BufferUtils
+                .createIntBuffer(indexedCollisionIndices.length)
+                .put(indexedCollisionIndices)
+                .flip();
+        
+        return new MeshCollisionShape(true, new IndexedMesh(verticesBuffer, indicesBuffer));
+    }
+    
+    public static CompoundCollisionShape createConvexCollisionShapeFromMeshes(float[][] vertices, int[][] indices, Matrix4fc[] models, int vertexSize, int xyzOffset, Vhacd4Parameters parameters) {
+        Pair<float[], int[]> indexedCollisionVerticesPair = transformAndReindex(vertices, indices, models, vertexSize, xyzOffset);
+        
+        float[] indexedCollisionVertices = indexedCollisionVerticesPair.getA();
+        int[] indexedCollisionIndices = indexedCollisionVerticesPair.getB();
+        
+        List<Vhacd4Hull> hulls = Vhacd4.compute(
+                indexedCollisionVertices,
+                indexedCollisionIndices,
+                parameters
+        );
+        
+        if (hulls.isEmpty()) {
+            return null;
+        }
+        
+        CompoundCollisionShape compound = new CompoundCollisionShape();
+        for (Vhacd4Hull hull:hulls) {
+            compound.addChildShape(new HullCollisionShape(hull));
+        }
+        
+        return compound;
+    }
+    
     public static MeshData createMeshFromCollisionShape(String name, CollisionShape shape) {
         FloatBuffer verts = DebugShapeFactory.getDebugTriangles(shape, DebugShapeFactory.highResolution);
         verts.flip();
@@ -328,7 +418,12 @@ public class MeshUtils {
         int amountOfVertices = verts.capacity() / 3;
         float[] vertices = new float[amountOfVertices * MeshData.SIZE];
         for (int v = 0; v < amountOfVertices; v++) {
-            verts.get(vertices, v * MeshData.SIZE, 3);
+            float x = verts.get() * Main.FROM_PHYSICS_ENGINE_UNITS;
+            float y = verts.get() * Main.FROM_PHYSICS_ENGINE_UNITS;
+            float z = verts.get() * Main.FROM_PHYSICS_ENGINE_UNITS;
+            vertices[(v * MeshData.SIZE) + MeshData.XYZ_OFFSET + 0] = x;
+            vertices[(v * MeshData.SIZE) + MeshData.XYZ_OFFSET + 1] = y;
+            vertices[(v * MeshData.SIZE) + MeshData.XYZ_OFFSET + 2] = z;
         }
 
         Vector3f normal = new Vector3f();
@@ -336,7 +431,7 @@ public class MeshUtils {
             int i0 = v + 0;
             int i1 = v + 1;
             int i2 = v + 2;
-
+            
             calculateTriangleNormal(
                     vertices, MeshData.SIZE, MeshData.XYZ_OFFSET,
                     i0, i1, i2,
@@ -391,7 +486,7 @@ public class MeshUtils {
             return null;
         }
         
-        return new SphereCollisionShape(maxRadius);
+        return new SphereCollisionShape(maxRadius * Main.TO_PHYSICS_ENGINE_UNITS);
     }
     
     public static CylinderCollisionShape cylinderCollisionFromVertices(float[] vertices, int vertexSize, int xyzOffset, float centerX, float centerY, float centerZ, int axis) {
@@ -442,7 +537,11 @@ public class MeshUtils {
             return null;
         }
         
-        return new CylinderCollisionShape(maxRadius, maxHeight * 2f, axis);
+        return new CylinderCollisionShape(
+                maxRadius * Main.TO_PHYSICS_ENGINE_UNITS,
+                maxHeight * 2f * Main.TO_PHYSICS_ENGINE_UNITS,
+                axis
+        );
     }
     
     public static BoxCollisionShape boxCollisionFromVertices(float[] vertices, int vertexSize, int xyzOffset, float centerX, float centerY, float centerZ) {
@@ -464,7 +563,11 @@ public class MeshUtils {
             halfExtentZ = Math.max(halfExtentZ, Math.abs(z));
         }
         
-        return new BoxCollisionShape(halfExtentX, halfExtentY, halfExtentZ);
+        return new BoxCollisionShape(
+                halfExtentX * Main.TO_PHYSICS_ENGINE_UNITS,
+                halfExtentY * Main.TO_PHYSICS_ENGINE_UNITS,
+                halfExtentZ * Main.TO_PHYSICS_ENGINE_UNITS
+        );
     }
     
     public static CapsuleCollisionShape capsuleCollisionFromVertices(float[] vertices, int vertexSize, int xyzOffset, float centerX, float centerY, float centerZ, int axis) {
@@ -518,7 +621,11 @@ public class MeshUtils {
             return null;
         }
         
-        return new CapsuleCollisionShape(radius, height, axis);
+        return new CapsuleCollisionShape(
+                radius * Main.TO_PHYSICS_ENGINE_UNITS,
+                height * Main.TO_PHYSICS_ENGINE_UNITS,
+                axis
+        );
     }
     
     public static void aabCenter(float[] vertices, int vertexSize, int xyzOffset, Vector3f centerOut) {

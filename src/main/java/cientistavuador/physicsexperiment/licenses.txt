@@ -18,7 +18,7 @@ JOML - MIT License https://github.com/JOML-CI/JOML
 FlatLaf - Apache License Version 2.0 https://github.com/JFormDesigner/FlatLaf
 Liburing - MIT License https://github.com/axboe/liburing
 Libffi - MIT License https://github.com/libffi/libffi
-Libbulletjme - BSD 3-Clause/zlib https://github.com/stephengold/Libbulletjme/
+Libbulletjme + Bullet Physics + VHACD - BSD 3-Clause/zlib https://github.com/stephengold/Libbulletjme/ https://github.com/bulletphysics/bullet3 https://github.com/kmammou/v-hacd
 
 Licenses:
 

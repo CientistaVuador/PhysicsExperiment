@@ -27,6 +27,7 @@
 package cientistavuador.physicsexperiment.util.raycast;
 
 import org.joml.Intersectionf;
+import org.joml.Vector2f;
 import org.joml.Vector3fc;
 
 /**
@@ -41,6 +42,20 @@ public class IntersectionUtils {
 
     public static float intersectRayTriangle(Vector3fc origin, Vector3fc dir, Vector3fc a, Vector3fc b, Vector3fc c) {
         return Intersectionf.intersectRayTriangle(origin, dir, a, b, c, 1f / 100000f);
+    }
+    
+    public static boolean lineSegmentLineSegment(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, Vector2f p) {
+        float denom = 1f / ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4));
+        float t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) * denom;
+        float u = -(((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) * denom);
+        if (t >= 0f && t <= 1f && u >= 0f && u <= 1f) {
+            p.set(
+                    x1 + t * (x2 - x1),
+                    y1 + t * (y2 - y1)
+            );
+            return true;
+        }
+        return false;
     }
     
     private IntersectionUtils() {

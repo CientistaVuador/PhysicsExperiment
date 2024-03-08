@@ -24,7 +24,7 @@
  *
  * For more information, please refer to <https://unlicense.org>
  */
-package cientistavuador.physicsexperiment.characterphysics;
+package cientistavuador.physicsexperiment.physics;
 
 import cientistavuador.physicsexperiment.Main;
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
@@ -43,13 +43,14 @@ public class PlayerController {
     public static final float CROUCH_HEIGHT = 1f;
     public static final float RADIUS = 0.5f / 2f;
     public static final float MASS = 65f;
-    
+
     public static final float EYE_OFFSET = -0.15f;
 
-    public static final float WALK_SPEED = 4.5f;
+    public static final float WALK_SPEED = 5.5f;
     public static final float CROUCH_SPEED = 1.75f;
+    public static final float CLIFF_SPEED = 2.5f;
 
-    public static final float JUMP_SPEED = 8f;
+    public static final float JUMP_SPEED = 8.5f;
     public static final float CROUCH_JUMP_SPEED = 6f;
 
     public static final float OUT_OF_GROUND_SPEED_FACTOR = 0.5f;
@@ -60,12 +61,14 @@ public class PlayerController {
     public static final float NOCLIP_RUN_SPEED = 13f;
 
     private final CharacterController characterController;
-
+    
     private final Vector3f eyePosition = new Vector3f();
-
+    private boolean smoothVerticalMovementEnabled = true;
+    private float verticalRoughness = 40f;
+    
     private float walkDirectionX = 0f;
     private float walkDirectionZ = 0f;
-
+    
     private boolean crouchPressed = false;
 
     private MeshData collisionMeshData = null;
@@ -73,20 +76,45 @@ public class PlayerController {
 
     public PlayerController() {
         this.characterController = new CharacterController(RADIUS, HEIGHT, CROUCH_HEIGHT, MASS);
+        forceEyePositionUpdateImpl();
     }
-
+    
+    private void forceEyePositionUpdateImpl() {
+        Vector3fc pos = this.characterController.getInterpolatedPosition();
+        
+        this.eyePosition.set(
+                pos.x(),
+                pos.y() + this.characterController.getCurrentHeight() + EYE_OFFSET,
+                pos.z()
+        );
+    }
+    
     public CharacterController getCharacterController() {
         return characterController;
     }
 
     public Vector3fc getEyePosition() {
-        Vector3fc pos = this.characterController.getPosition();
-
-        this.eyePosition
-                .set(pos)
-                .add(0f, this.characterController.getCurrentHeight() + EYE_OFFSET, 0f);
-
         return this.eyePosition;
+    }
+    
+    public void forceEyePositionUpdate() {
+        forceEyePositionUpdateImpl();
+    }
+
+    public boolean isSmoothVerticalMovementEnabled() {
+        return smoothVerticalMovementEnabled;
+    }
+
+    public void setSmoothVerticalMovementEnabled(boolean smoothVerticalMovementEnabled) {
+        this.smoothVerticalMovementEnabled = smoothVerticalMovementEnabled;
+    }
+
+    public float getVerticalRoughness() {
+        return verticalRoughness;
+    }
+
+    public void setVerticalRoughness(float verticalRoughness) {
+        this.verticalRoughness = verticalRoughness;
     }
 
     public void jump() {
@@ -184,7 +212,7 @@ public class PlayerController {
         float camRightZ = rightVector.z();
 
         Vector3fc pos = this.characterController.getPosition();
-        
+
         float tpfFloat = (float) Main.TPF;
         float posX = pos.x() + ((camRightX * xa + frontVector.x() * za) * tpfFloat);
         float posY = pos.y() + ((camRightY * xa + frontVector.y() * za) * tpfFloat);
@@ -192,15 +220,40 @@ public class PlayerController {
 
         this.characterController.setPosition(posX, posY, posZ);
     }
+    
+    public void update(Vector3fc frontVector, Vector3fc rightVector) {
+        Vector3fc pos = this.characterController.getInterpolatedPosition();
+        
+        float currentY = this.eyePosition.y();
+        float targetY = pos.y() + this.characterController.getCurrentHeight() + EYE_OFFSET;
+        if (this.isSmoothVerticalMovementEnabled() && !this.getCharacterController().isNoclipEnabled()) {
+            float direction = targetY - currentY;
+            float step = (float) (direction * Main.TPF * this.verticalRoughness);
+            if (Math.abs(step) > Math.abs(direction)) {
+                step = direction;
+            }
+            currentY += step;
+        } else {
+            currentY = targetY;
+        }
 
-    public void updateMovement(Vector3fc frontVector, Vector3fc rightVector) {
+        this.eyePosition.set(pos.x(), currentY, pos.z());
+
         if (!this.characterController.isNoclipEnabled()) {
             checkCrouch();
             calculateWalkDirection(frontVector, rightVector);
-
+            
+            float speed = WALK_SPEED;
+            if (this.characterController.isCrouched() && this.characterController.onGround()) {
+                speed = CROUCH_SPEED;
+            }
+            if (!this.characterController.isGroundNormalInsideThreshold()) {
+                speed = CLIFF_SPEED;
+            }
+            
             this.characterController.setWalkDirection(
-                    this.walkDirectionX * (this.characterController.isCrouched() && this.characterController.onGroundOrWillBe() ? CROUCH_SPEED : WALK_SPEED),
-                    this.walkDirectionZ * (this.characterController.isCrouched() && this.characterController.onGroundOrWillBe() ? CROUCH_SPEED : WALK_SPEED)
+                    this.walkDirectionX * speed,
+                    this.walkDirectionZ * speed
             );
         } else {
             this.walkDirectionX = 0f;

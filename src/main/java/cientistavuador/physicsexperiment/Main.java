@@ -68,6 +68,10 @@ public class Main {
 
     public static final String APPLICATION_NAME = "Physics Experiment";
     
+    public static final float PHYSICS_ENGINE_UNITS = 10f;
+    public static final float TO_PHYSICS_ENGINE_UNITS = PHYSICS_ENGINE_UNITS;
+    public static final float FROM_PHYSICS_ENGINE_UNITS = 1f / PHYSICS_ENGINE_UNITS;
+    
     public static final boolean USE_MSAA = false;
     public static final boolean DEBUG_ENABLED = true;
     public static final boolean SPIKE_LAG_WARNINGS = false;
@@ -76,7 +80,7 @@ public class Main {
     public static final int OPENGL_MAJOR_VERSION;
     public static final int OPENGL_MINOR_VERSION;
     public static final boolean COMPATIBLE_MODE;
-
+    
     static {
         if (!glfwInit()) {
             throw new IllegalStateException("Could not initialize GLFW!");

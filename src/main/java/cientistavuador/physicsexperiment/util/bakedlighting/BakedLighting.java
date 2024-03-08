@@ -1147,7 +1147,7 @@ public class BakedLighting {
                         }
                     }
                 }
-
+                
                 this.status.rays++;
                 RayResult[] results = Geometry.testRay(indirect.bouncePosition, indirect.bounceDirection, this.scene.getGeometries());
                 if (results.length == 0) {
@@ -1157,7 +1157,7 @@ public class BakedLighting {
                     }
                     break;
                 }
-
+                
                 RayResult closestRay = results[0];
                 closestRay.weights(indirect.bounceWeights);
 

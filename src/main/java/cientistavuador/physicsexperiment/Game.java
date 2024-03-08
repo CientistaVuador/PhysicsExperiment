@@ -27,13 +27,14 @@
 package cientistavuador.physicsexperiment;
 
 import cientistavuador.physicsexperiment.camera.FreeCamera;
-import cientistavuador.physicsexperiment.characterphysics.PlayerController;
+import cientistavuador.physicsexperiment.physics.PlayerController;
 import cientistavuador.physicsexperiment.debug.AabRender;
 import cientistavuador.physicsexperiment.debug.LineRender;
 import cientistavuador.physicsexperiment.geometry.Geometries;
 import cientistavuador.physicsexperiment.geometry.GeometriesLoader;
 import cientistavuador.physicsexperiment.geometry.Geometry;
 import cientistavuador.physicsexperiment.popups.BakePopup;
+import cientistavuador.physicsexperiment.resources.mesh.MeshConfiguration;
 import cientistavuador.physicsexperiment.resources.mesh.MeshData;
 import cientistavuador.physicsexperiment.shader.GeometryProgram;
 import cientistavuador.physicsexperiment.text.GLFontRenderer;
@@ -53,14 +54,13 @@ import com.jme3.bullet.PhysicsSpace;
 import com.jme3.bullet.collision.shapes.CollisionShape;
 import com.jme3.bullet.collision.shapes.MeshCollisionShape;
 import com.jme3.bullet.collision.shapes.SphereCollisionShape;
-import com.jme3.bullet.collision.shapes.infos.IndexedMesh;
 import com.jme3.bullet.objects.PhysicsRigidBody;
+import com.jme3.bullet.objects.infos.RigidBodyMotionState;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -71,6 +71,7 @@ import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fc;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
 import static org.lwjgl.glfw.GLFW.*;
@@ -179,26 +180,48 @@ public class Game {
     private final AtomicBoolean saveLightmapProcessing = new AtomicBoolean(false);
 
     private final PhysicsSpace physicsSpace = new PhysicsSpace(PhysicsSpace.BroadphaseType.DBVT);
-
     private final List<PhysicsRigidBody> rigidBodies = new ArrayList<>();
     private final Scene.DirectionalLight sun = new Scene.DirectionalLight();
-    private final SphereCollisionShape sphereShape = new SphereCollisionShape(0.35f / 2f);
+    private final SphereCollisionShape sphereShape = new SphereCollisionShape((0.35f / 2f) * Main.TO_PHYSICS_ENGINE_UNITS);
 
     private final Geometry monkeyGeometry = new Geometry(Geometries.MONKEY);
+    private final MeshData monkeyCollisionMesh;
     private final CollisionShape monkeyShape;
     private final CollisionShape ciencolaShape;
 
     {
         CollisionShape compound;
+
+        /*Vhacd4Parameters parameters = new Vhacd4Parameters();
+        
+        parameters.setFindBestPlane(true);
+        parameters.setMaxHulls(6);
+        parameters.setVolumePercentError(10);
+        
+        compound = MeshUtils.createConvexCollisionShapeFromMeshes(
+        new float[][]{this.monkeyGeometry.getMesh().getVertices()},
+        new int[][]{this.monkeyGeometry.getMesh().getIndices()},
+        new Matrix4fc[]{new Matrix4f()},
+        MeshData.SIZE,
+        MeshData.XYZ_OFFSET,
+        parameters
+        );
+        
         try {
-            try (InputStream stream = Geometries.class.getResourceAsStream("monkey.collision")) {
-                compound = CollisionShapeStore.decode(stream);
+        CollisionShapeStore.encode(new FileOutputStream("monkey.collision"), compound);
+        } catch (IOException ex) {
+        throw new UncheckedIOException(ex);
+        }*/
+        try {
+            try (InputStream stored = Geometries.class.getResourceAsStream("monkey.collision")) {
+                compound = CollisionShapeStore.decode(stored);
             }
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
 
         this.monkeyShape = compound;
+        this.monkeyCollisionMesh = MeshUtils.createMeshFromCollisionShape("monkeyCollision", compound);
     }
 
     {
@@ -248,8 +271,11 @@ public class Game {
     }
 
     public void start() {
-        this.physicsSpace.setMaxSubSteps(4);
-        this.physicsSpace.setAccuracy(1f / 120f);
+        this.physicsSpace.setMaxSubSteps(8);
+        this.physicsSpace.setAccuracy(1f / 60f);
+        this.physicsSpace.setGravity(new com.jme3.math.Vector3f(
+                0f, -9.8f * Main.TO_PHYSICS_ENGINE_UNITS, 0f
+        ));
 
         this.player.getCharacterController().addToPhysicsSpace(this.physicsSpace);
 
@@ -279,7 +305,35 @@ public class Game {
         loadLightmap(this.scene.getGeometries().get(1), "grass.lightmap");
         loadLightmap(this.scene.getGeometries().get(2), "bricks.lightmap");
         loadLightmap(this.scene.getGeometries().get(3), "red.lightmap");
-        this.geometryLightmaps.clear();
+
+        {
+            Geometry stair = new Geometry(GeometriesLoader.load(
+                    MeshConfiguration.lightmapped("stupid_stair.obj")
+            ).get("stupid_stair.obj"));
+            stair.getMesh().setTextureHint(Textures.CONCRETE);
+            stair.setModel(new Matrix4f()
+                    .translate(-7.4f, 0f, 0f)
+                    .scale(1.51f, 1.51f, 2f)
+                    .rotateY((float) Math.toRadians(180f))
+            );
+
+            loadLightmap(stair, "stairs.lightmap");
+
+            this.scene.getGeometries().add(stair);
+        }
+        
+        {
+            Geometry stair = new Geometry(GeometriesLoader.load(
+                    MeshConfiguration.lightmapped("not_so_stupid_stair.obj")
+            ).get("not_so_stupid_stair.obj"));
+            stair.getMesh().setTextureHint(Textures.CONCRETE);
+            stair.setModel(new Matrix4f()
+                    .translate(5f, 5f, 0f)
+                    .rotateY((float) Math.toRadians(-90f))
+            );
+            
+            this.scene.getGeometries().add(stair);
+        }
         
         this.scene.setIndirectLightingEnabled(true);
         this.scene.setDirectLightingEnabled(true);
@@ -293,64 +347,30 @@ public class Game {
         this.scene.setFastModeEnabled(false);
 
         sun.setGroupName("sun");
+        sun.setDirection(1f, -0.75f, 1f);
         this.scene.getLights().add(sun);
 
-        List<IndexedMesh> worldMeshes = new ArrayList<>();
+        List<float[]> meshVertices = new ArrayList<>();
+        List<int[]> meshIndices = new ArrayList<>();
+        List<Matrix4fc> meshModels = new ArrayList<>();
+
         for (Geometry g : this.scene.getGeometries()) {
-            MeshData mesh = g.getMesh();
-
-            int[] indices = mesh.getIndices();
-            float[] vertices = mesh.getVertices();
-
-            Vector3f vec = new Vector3f();
-
-            FloatBuffer positionBuffer = FloatBuffer.allocate(indices.length * 3);
-            for (int i = 0; i < indices.length; i += 1) {
-                int v = indices[i + 0] * MeshData.SIZE;
-
-                float x = vertices[v + MeshData.XYZ_OFFSET + 0];
-                float y = vertices[v + MeshData.XYZ_OFFSET + 1];
-                float z = vertices[v + MeshData.XYZ_OFFSET + 2];
-
-                vec.set(x, y, z);
-                g.getModel().transformProject(vec);
-
-                positionBuffer.put(vec.x()).put(vec.y()).put(vec.z());
-            }
-            positionBuffer.flip();
-
-            IndexedMesh collisionMesh = new IndexedMesh(positionBuffer);
-            worldMeshes.add(collisionMesh);
+            meshVertices.add(g.getMesh().getVertices());
+            meshIndices.add(g.getMesh().getIndices());
+            meshModels.add(g.getModel());
         }
-        {
-            Geometry g = this.monkeyGeometry;
-            MeshData mesh = g.getMesh();
 
-            int[] indices = mesh.getIndices();
-            float[] vertices = mesh.getVertices();
+        meshVertices.add(this.monkeyGeometry.getMesh().getVertices());
+        meshIndices.add(this.monkeyGeometry.getMesh().getIndices());
+        meshModels.add(this.monkeyGeometry.getModel());
 
-            Vector3f vec = new Vector3f();
+        MeshCollisionShape world = MeshUtils.createStaticCollisionShapeFromMeshes(
+                meshVertices.toArray(float[][]::new),
+                meshIndices.toArray(int[][]::new),
+                meshModels.toArray(Matrix4fc[]::new),
+                MeshData.SIZE, MeshData.XYZ_OFFSET
+        );
 
-            FloatBuffer positionBuffer = FloatBuffer.allocate(indices.length * 3);
-            for (int i = 0; i < indices.length; i += 1) {
-                int v = indices[i + 0] * MeshData.SIZE;
-
-                float x = vertices[v + MeshData.XYZ_OFFSET + 0];
-                float y = vertices[v + MeshData.XYZ_OFFSET + 1];
-                float z = vertices[v + MeshData.XYZ_OFFSET + 2];
-
-                vec.set(x, y, z);
-                g.getModel().transformProject(vec);
-
-                positionBuffer.put(vec.x()).put(vec.y()).put(vec.z());
-            }
-            positionBuffer.flip();
-
-            IndexedMesh collisionMesh = new IndexedMesh(positionBuffer);
-            worldMeshes.add(collisionMesh);
-        }
-        MeshCollisionShape world = new MeshCollisionShape(true, worldMeshes);
-        world.setMargin(0.025f);
         PhysicsRigidBody worldBody = new PhysicsRigidBody(world, 0f);
         worldBody.setRestitution(1f);
         worldBody.setFriction(1f);
@@ -399,7 +419,7 @@ public class Game {
         GeometryProgram.INSTANCE.setBakedLightGroupIntensity(1, this.sunIntensity);
 
         if (this.playerActive) {
-            this.player.updateMovement(this.camera.getFront(), this.camera.getRight());
+            this.player.update(this.camera.getFront(), this.camera.getRight());
 
             camera.setPosition(
                     this.player.getEyePosition().x(),
@@ -408,7 +428,7 @@ public class Game {
             );
         }
 
-        if (this.player.getCharacterController().getPosition().y() < -10f) {
+        if (this.player.getCharacterController().getPosition().y() < -100f) {
             resetPlayer();
         }
 
@@ -508,10 +528,14 @@ public class Game {
             program.setColor(1f, 1f, 1f, 1f);
             Matrix4f model = new Matrix4f();
 
+            RigidBodyMotionState motion = e.getMotionState();
+
+            com.jme3.math.Vector3f pos = motion.getLocation(null);
+
             Vector3f position = new Vector3f(
-                    e.getPhysicsLocation(null).x,
-                    e.getPhysicsLocation(null).y,
-                    e.getPhysicsLocation(null).z
+                    pos.x * Main.FROM_PHYSICS_ENGINE_UNITS,
+                    pos.y * Main.FROM_PHYSICS_ENGINE_UNITS,
+                    pos.z * Main.FROM_PHYSICS_ENGINE_UNITS
             );
 
             boolean shadow = Geometry.fastTestRay(position, this.sun.getDirectionNegated(), Float.POSITIVE_INFINITY, this.scene.getGeometries());
@@ -525,10 +549,10 @@ public class Game {
             model.translate(position);
 
             if (geo.getMesh().equals(Geometries.SPHERE)) {
-                model.scale(this.sphereShape.getRadius() * 2f);
+                model.scale(this.sphereShape.getRadius() * 2f * Main.FROM_PHYSICS_ENGINE_UNITS);
             }
 
-            com.jme3.math.Matrix3f rot = e.getPhysicsRotationMatrix(null);
+            com.jme3.math.Matrix3f rot = motion.getOrientation((com.jme3.math.Matrix3f) null);
             Matrix3f rotation = new Matrix3f();
             for (int i = 0; i < 3; i++) {
                 for (int j = 0; j < 3; j++) {
@@ -546,7 +570,7 @@ public class Game {
             glBindTexture(GL_TEXTURE_2D_ARRAY, Textures.EMPTY_LIGHTMAP);
 
             //if (geo.getMesh().equals(Geometries.MONKEY)) {
-            //    this.monkeyShapeMesh.bindRenderUnbind();
+            //    this.monkeyCollisionMesh.bindRenderUnbind();
             //} else {
             geo.getMesh().bindRenderUnbind();
             //}
@@ -616,15 +640,19 @@ public class Game {
 
                     Vector3f spherePosition = new Vector3f();
                     com.jme3.math.Vector3f center = sphere.getPhysicsLocation(null);
-                    spherePosition.set(center.x, center.y, center.z);
+                    spherePosition.set(
+                            center.x * Main.FROM_PHYSICS_ENGINE_UNITS,
+                            center.y * Main.FROM_PHYSICS_ENGINE_UNITS,
+                            center.z * Main.FROM_PHYSICS_ENGINE_UNITS
+                    );
 
                     camTarget.sub(spherePosition).normalize();
 
                     sphere.applyCentralForce(
                             new com.jme3.math.Vector3f(
-                                    camTarget.x() * sphere.getMass() * 20f,
-                                    camTarget.y() * sphere.getMass() * 20f,
-                                    camTarget.z() * sphere.getMass() * 20f
+                                    camTarget.x() * sphere.getMass() * 20f * Main.TO_PHYSICS_ENGINE_UNITS,
+                                    camTarget.y() * sphere.getMass() * 20f * Main.TO_PHYSICS_ENGINE_UNITS,
+                                    camTarget.z() * sphere.getMass() * 20f * Main.TO_PHYSICS_ENGINE_UNITS
                             )
                     );
                 }
@@ -633,14 +661,14 @@ public class Game {
 
         List<PhysicsRigidBody> removed = new ArrayList<>();
         for (PhysicsRigidBody e : this.rigidBodies) {
-            if (e.getPhysicsLocation(null).y < -10f) {
+            if (e.getPhysicsLocation(null).y < -100f * Main.TO_PHYSICS_ENGINE_UNITS) {
                 this.physicsSpace.removeCollisionObject(e);
                 removed.add(e);
             }
         }
         this.rigidBodies.removeAll(removed);
 
-        this.physicsSpace.update((float) Main.TPF);
+        this.physicsSpace.update((float) Main.TPF, 8, true, true, true);
     }
 
     public void bakePopupCallback(BakePopup popup) {
@@ -661,6 +689,7 @@ public class Game {
 
     public void resetPlayer() {
         this.player.getCharacterController().setPosition(0f, 5f, -5f);
+        this.player.getCharacterController().getRigidBody().setLinearVelocity(com.jme3.math.Vector3f.ZERO);
     }
 
     public void mouseCursorMoved(double x, double y) {
@@ -679,14 +708,14 @@ public class Game {
         }
         Vector3fc front = this.camera.getFront();
         body.setPhysicsLocation(new com.jme3.math.Vector3f(
-                (float) this.camera.getPosition().x() + front.x(),
-                (float) this.camera.getPosition().y() + front.y(),
-                (float) this.camera.getPosition().z() + front.z()
+                (float) (this.camera.getPosition().x() + front.x()) * Main.TO_PHYSICS_ENGINE_UNITS,
+                (float) (this.camera.getPosition().y() + front.y()) * Main.TO_PHYSICS_ENGINE_UNITS,
+                (float) (this.camera.getPosition().z() + front.z()) * Main.TO_PHYSICS_ENGINE_UNITS
         ));
         body.applyCentralImpulse(new com.jme3.math.Vector3f(
-                front.x() * body.getMass() * 10f,
-                front.y() * body.getMass() * 10f,
-                front.z() * body.getMass() * 10f
+                front.x() * body.getMass() * 10f * Main.TO_PHYSICS_ENGINE_UNITS,
+                front.y() * body.getMass() * 10f * Main.TO_PHYSICS_ENGINE_UNITS,
+                front.z() * body.getMass() * 10f * Main.TO_PHYSICS_ENGINE_UNITS
         ));
     }
 
@@ -694,6 +723,9 @@ public class Game {
         if (key == GLFW_KEY_F && action == GLFW_PRESS) {
             this.playerActive = !this.playerActive;
             this.camera.setMovementDisabled(this.playerActive);
+            if (this.playerActive) {
+                this.player.forceEyePositionUpdate();
+            }
         }
         if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
             if (!this.bakeWindowOpen) {
@@ -783,12 +815,12 @@ public class Game {
             this.rigidBodies.add(physicsMonkey);
         }
         if (key == GLFW_KEY_C && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-            PhysicsRigidBody physicsCiencola = new PhysicsRigidBody(this.ciencolaShape, 0.4f);
+            PhysicsRigidBody physicsCiencola = new PhysicsRigidBody(this.ciencolaShape, 0.5f);
             configureRigidBody(physicsCiencola);
             physicsCiencola.setFriction(0.4f);
-            physicsCiencola.setRollingFriction(0.002f);
-            physicsCiencola.setSpinningFriction(0.015f);
-            physicsCiencola.setRestitution(0.0f);
+            physicsCiencola.setRollingFriction(0.06f);
+            physicsCiencola.setSpinningFriction(0.06f);
+            physicsCiencola.setRestitution(0.2f);
             physicsCiencola.setUserObject(new Geometry(Geometries.CIENCOLA));
             this.physicsSpace.addCollisionObject(physicsCiencola);
             this.rigidBodies.add(physicsCiencola);
@@ -844,19 +876,23 @@ public class Game {
                     Vector3f position = new Vector3f();
                     position.set(closest.getHitPosition());
                     com.jme3.math.Vector3f center = sphere.getPhysicsLocation(null);
-                    position.sub(center.x, center.y, center.z);
+                    position.sub(
+                            center.x * Main.FROM_PHYSICS_ENGINE_UNITS,
+                            center.y * Main.FROM_PHYSICS_ENGINE_UNITS,
+                            center.z * Main.FROM_PHYSICS_ENGINE_UNITS
+                    );
 
                     com.jme3.math.Vector3f o = new com.jme3.math.Vector3f(
-                            position.x(),
-                            position.y(),
-                            position.z()
+                            position.x() * Main.TO_PHYSICS_ENGINE_UNITS,
+                            position.y() * Main.TO_PHYSICS_ENGINE_UNITS,
+                            position.z() * Main.TO_PHYSICS_ENGINE_UNITS
                     );
 
                     sphere.applyImpulse(
                             new com.jme3.math.Vector3f(
-                                    this.camera.getFront().x() * sphere.getMass() * 10f,
-                                    this.camera.getFront().y() * sphere.getMass() * 10f,
-                                    this.camera.getFront().z() * sphere.getMass() * 10f
+                                    this.camera.getFront().x() * sphere.getMass() * 10f * Main.TO_PHYSICS_ENGINE_UNITS,
+                                    this.camera.getFront().y() * sphere.getMass() * 10f * Main.TO_PHYSICS_ENGINE_UNITS,
+                                    this.camera.getFront().z() * sphere.getMass() * 10f * Main.TO_PHYSICS_ENGINE_UNITS
                             ),
                             o
                     );

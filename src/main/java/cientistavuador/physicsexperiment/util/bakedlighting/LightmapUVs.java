@@ -712,7 +712,7 @@ public class LightmapUVs {
                 float centerY = ((minY + 0.5f) * 0.5f) + ((maxY + 0.5f) * 0.5f);
 
                 QuadBVH closest = null;
-                float closestDistance = 0f;
+                float closestSquaredDistance = 0f;
                 int closestIndex = 0;
                 for (int j = 0; j < currentLength; j++) {
                     QuadBVH other = current[j];
@@ -731,11 +731,11 @@ public class LightmapUVs {
                     float dX = centerX - otherCenterX;
                     float dY = centerY - otherCenterY;
 
-                    float dist = (float) Math.sqrt((dX * dX) + (dY * dY));
+                    float squaredDist = (dX * dX) + (dY * dY);
 
-                    if (dist < closestDistance || closest == null) {
+                    if (squaredDist < closestSquaredDistance || closest == null) {
                         closest = other;
-                        closestDistance = dist;
+                        closestSquaredDistance = squaredDist;
                         closestIndex = j;
                     }
                 }
@@ -910,9 +910,9 @@ public class LightmapUVs {
         }
 
         Comparator<Quad> comparator = (o1, o2) -> {
-            int o1Area = o1.width * o1.height;
-            int o2Area = o2.width * o2.height;
-            return Integer.compare(o1Area, o2Area);
+            int o1Max = Math.max(o1.width, o1.height);
+            int o2Max = Math.max(o2.width, o2.height);
+            return Integer.compare(o1Max, o2Max);
         };
         this.quads.sort(comparator.reversed());
 
