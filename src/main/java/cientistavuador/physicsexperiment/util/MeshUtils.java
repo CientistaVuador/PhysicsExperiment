@@ -411,6 +411,12 @@ public class MeshUtils {
         return compound;
     }
     
+    public static HullCollisionShape createHullCollisionShapeFromMeshes(float[][] vertices, int[][] indices, Matrix4fc[] models, int vertexSize, int xyzOffset) {
+        Pair<float[], int[]> indexedCollisionVerticesPair = transformAndReindex(vertices, indices, models, vertexSize, xyzOffset);
+        
+        return new HullCollisionShape(indexedCollisionVerticesPair.getA());
+    }
+    
     public static MeshData createMeshFromCollisionShape(String name, CollisionShape shape) {
         FloatBuffer verts = DebugShapeFactory.getDebugTriangles(shape, DebugShapeFactory.highResolution);
         verts.flip();
