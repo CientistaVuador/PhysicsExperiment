@@ -51,6 +51,7 @@ import cientistavuador.physicsexperiment.util.raycast.RayResult;
 import cientistavuador.physicsexperiment.util.bakedlighting.SamplingMode;
 import cientistavuador.physicsexperiment.util.bakedlighting.Scene;
 import com.jme3.bullet.PhysicsSpace;
+import com.jme3.bullet.collision.PhysicsCollisionObject;
 import com.jme3.bullet.collision.shapes.CollisionShape;
 import com.jme3.bullet.collision.shapes.HullCollisionShape;
 import com.jme3.bullet.collision.shapes.MeshCollisionShape;
@@ -338,6 +339,19 @@ public class Game {
             loadLightmap(stair, "stairs.lightmap");
 
             this.scene.getGeometries().add(stair);
+            
+            HullCollisionShape clippedStairs = MeshUtils.createHullCollisionShapeFromMeshes(
+                    new float[][] {stair.getMesh().getVertices()},
+                    new int[][] {stair.getMesh().getIndices()},
+                    new Matrix4fc[] {stair.getModel()},
+                    MeshData.SIZE,
+                    MeshData.XYZ_OFFSET
+            );
+            
+            PhysicsRigidBody clippedStairsBody = new PhysicsRigidBody(clippedStairs, 0f);
+            clippedStairsBody.setFriction(1f);
+            clippedStairsBody.setRestitution(1f);
+            this.physicsSpace.addCollisionObject(clippedStairsBody);
         }
         
         {
@@ -373,6 +387,9 @@ public class Game {
         List<Matrix4fc> meshModels = new ArrayList<>();
 
         for (Geometry g : this.scene.getGeometries()) {
+            if (g.getMesh().getName().equals("stupid_stair.obj")) {
+                continue;
+            }
             meshVertices.add(g.getMesh().getVertices());
             meshIndices.add(g.getMesh().getIndices());
             meshModels.add(g.getModel());
