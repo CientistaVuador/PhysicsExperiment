@@ -49,7 +49,7 @@ import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
 /**
- * 
+ *
  * @author Cien
  */
 public class CharacterController implements PhysicsTickListener {
@@ -72,15 +72,16 @@ public class CharacterController implements PhysicsTickListener {
             throw new RuntimeException(ex);
         }
     }
-    
+
     public static final float EPSILON = 0.001f;
-    
+
     public static final float TEST_BOX_HEIGHT = 0.01f;
-    
+
     public static final float STEP_UP_MINIMUM_HEIGHT = 0.08f;
     public static final float STEP_UP_EXTRA_HEIGHT = 0.06f;
     public static final int STEP_UP_EXTRA_HEIGHT_TICKS = 6;
     public static final float STEP_DOWN_MINIMUM_HEIGHT = 0.02f;
+    public static final float PRECISE_BLOCK_TUNNELING_CCD_PENETRATION = 0.04f;
 
     public static final float VELOCITY_CUTOFF = 0.01f;
 
@@ -131,15 +132,15 @@ public class CharacterController implements PhysicsTickListener {
     private float stepUpMargin = 0.1f;
     private float stepDownHeight = 0.60f;
     private float stepMaxExternalSpeed = 3f;
-    
+
     private float depenetrationMargin = 0.6f;
-    
+
     private float sweepTestTolerance = 0.1f;
-    
+
     private float onGroundThreshold = 0.05f;
-    
+
     private float gravityCutoffTime = 0.1f;
-    
+
     private float nextJumpImpulse = 0f;
     private int stepUpExtraHeightTicks = 0;
     private float stepUpHeightDetected = 0f;
@@ -204,7 +205,7 @@ public class CharacterController implements PhysicsTickListener {
     private final com.jme3.math.Vector3f sweepTestScale = new com.jme3.math.Vector3f();
     private final com.jme3.math.Vector3f sweepTestStartPosition = new com.jme3.math.Vector3f();
     private final com.jme3.math.Vector3f sweepTestEndPosition = new com.jme3.math.Vector3f();
-    
+
     private final com.jme3.math.Transform sweepTestStart = new Transform();
     private final com.jme3.math.Transform sweepTestEnd = new Transform();
 
@@ -218,7 +219,7 @@ public class CharacterController implements PhysicsTickListener {
 
     private final com.jme3.math.Vector3f interpolatedPositionStore = new com.jme3.math.Vector3f();
     private final Vector3f interpolatedJomlPositionStore = new Vector3f();
-    
+
     private final Vector3f orientedWalk = new Vector3f();
     private final Vector3f orientedTangent = new Vector3f();
     private final Vector3f orientedBitangent = new Vector3f();
@@ -257,7 +258,7 @@ public class CharacterController implements PhysicsTickListener {
             );
             this.crouchCollisionShape = compound;
         }
-        
+
         this.rigidBody = new PhysicsRigidBody(this.collisionShape, mass);
         this.rigidBody.setAngularFactor(0f);
         this.rigidBody.setEnableSleep(false);
@@ -265,7 +266,7 @@ public class CharacterController implements PhysicsTickListener {
         this.rigidBody.setRestitution(0f);
         this.rigidBody.setProtectGravity(true);
         this.rigidBody.setGravity(com.jme3.math.Vector3f.ZERO);
-        
+
         {
             this.sweepTestBox = new BoxCollisionShape(1f, 1f, 1f);
         }
@@ -482,7 +483,7 @@ public class CharacterController implements PhysicsTickListener {
     public float getStepUpMargin() {
         return stepUpMargin;
     }
-    
+
     public float getStepDownHeight() {
         return stepDownHeight;
     }
@@ -713,7 +714,7 @@ public class CharacterController implements PhysicsTickListener {
         }
         results.removeAll(toRemove);
     }
-    
+
     private void applyVelocity(float x, float y, float z) {
         float mass = this.rigidBody.getMass();
         this.velocityApply.set(x * mass, y * mass, z * mass);
@@ -935,7 +936,7 @@ public class CharacterController implements PhysicsTickListener {
 
         final float boxHeight = TEST_BOX_HEIGHT;
         final float yOffset = boxHeight * 0.5f;
-        
+
         com.jme3.math.Vector3f position = physicsPosition();
 
         {
@@ -993,20 +994,20 @@ public class CharacterController implements PhysicsTickListener {
 
             float hitY = (startY * (1f - closest)) + (endY * closest);
             hitY -= yOffset;
-            
+
             height = hitY - position.y;
-            
+
             if (height < STEP_UP_MINIMUM_HEIGHT) {
                 return;
             }
-            
+
             height += STEP_UP_EXTRA_HEIGHT;
-            
+
             if (height >= (this.stepUpHeight * Main.TO_PHYSICS_ENGINE_UNITS)) {
                 return;
             }
         }
-        
+
         physicsPosition(
                 position.x,
                 position.y + height,
@@ -1027,22 +1028,22 @@ public class CharacterController implements PhysicsTickListener {
     @Override
     public void prePhysicsTick(PhysicsSpace space, float timeStep) {
         checkNoclipState();
-        
+
         if (this.noclipEnabled) {
             return;
         }
-        
+
         cutVelocity();
-        
+
         checkIfShouldCrouch();
         findGroundOrientedDirection();
         disableGravityIfNeeded(timeStep);
-        
+
         applyWalk(timeStep);
         applyJump();
         applyGravity(space, timeStep);
         calculateTotalVelocities();
-        
+
         stepUp(space);
         storePosition();
     }
@@ -1171,16 +1172,25 @@ public class CharacterController implements PhysicsTickListener {
         float endY = position.y + yOffset;
         float endZ = position.z;
 
+        {
+            List<PhysicsSweepTestResult> results = boxSweepTest(space,
+                    startX, startY, startZ,
+                    endX, endY, endZ,
+                    physicsRadius, physicsHeight, this.depenetrationMargin
+            );
+            filterSweepResults(results, null, SweepTestFilter.NO_PLAYER_NO_GHOSTS);
+
+            if (results.isEmpty()) {
+                return;
+            }
+        }
+
         List<PhysicsSweepTestResult> results = boxSweepTest(space,
                 startX, startY, startZ,
                 endX, endY, endZ,
-                physicsRadius, physicsHeight, this.depenetrationMargin
+                physicsRadius, physicsHeight, PRECISE_BLOCK_TUNNELING_CCD_PENETRATION
         );
         filterSweepResults(results, null, SweepTestFilter.NO_PLAYER_NO_GHOSTS);
-        
-        if (results.isEmpty()) {
-            return;
-        }
 
         float hit = results.get(0).getHitFraction();
 
@@ -1262,7 +1272,7 @@ public class CharacterController implements PhysicsTickListener {
                 height += STEP_UP_EXTRA_HEIGHT;
             }
         }
-        
+
         physicsPosition(
                 position.x,
                 position.y + height,
@@ -1272,7 +1282,7 @@ public class CharacterController implements PhysicsTickListener {
         this.onGround = true;
         this.groundNormal.set(foundNormal.x, foundNormal.y, foundNormal.z);
     }
-    
+
     private void checkIfShouldUncrouch(PhysicsSpace space) {
         if (!this.crouchStateChanged) {
             return;
@@ -1355,7 +1365,7 @@ public class CharacterController implements PhysicsTickListener {
         if (this.noclipEnabled) {
             return;
         }
-        
+
         collectAppliedVelocities();
         applyFriction(timeStep);
 

@@ -668,7 +668,9 @@ public class Game {
         }
         this.rigidBodies.removeAll(removed);
 
-        this.physicsSpace.update((float) Main.TPF, 8, true, true, true);
+        this.physicsSpace.update((float) Main.TPF);
+        
+        Main.WINDOW_TITLE += " (Speed: "+String.format("%.2f", this.player.getCharacterController().getRigidBody().getLinearVelocity(null).length())+")";
     }
 
     public void bakePopupCallback(BakePopup popup) {
