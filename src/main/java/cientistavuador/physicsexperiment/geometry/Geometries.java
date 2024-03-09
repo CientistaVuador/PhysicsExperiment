@@ -48,9 +48,11 @@ public class Geometries {
     public static final MeshData CIENCOLA;
     public static final MeshData SPHERE;
     public static final MeshData MONKEY;
+    public static final MeshData ASTEROID;
 
     static {
         Map<String, MeshData> meshes = GeometriesLoader.load(
+                MeshConfiguration.ambientOcclusion("asteroid.obj"),
                 MeshConfiguration.lightmapped("garage.obj"),
                 MeshConfiguration.ambientOcclusion("ciencola.obj", 32)//,
         //MeshConfiguration.nothing("sphere.obj"),
@@ -132,6 +134,9 @@ public class Geometries {
 
         SPHERE = sphere;
         MONKEY = monkey;
+        
+        ASTEROID = meshes.get("asteroid.obj");
+        ASTEROID.setTextureHint(Textures.STONE);
     }
 
     public static void init() {

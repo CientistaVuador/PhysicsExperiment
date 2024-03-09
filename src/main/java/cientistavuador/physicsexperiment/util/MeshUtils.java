@@ -34,6 +34,7 @@ import com.jme3.bullet.collision.shapes.CapsuleCollisionShape;
 import com.jme3.bullet.collision.shapes.CollisionShape;
 import com.jme3.bullet.collision.shapes.CompoundCollisionShape;
 import com.jme3.bullet.collision.shapes.CylinderCollisionShape;
+import com.jme3.bullet.collision.shapes.GImpactCollisionShape;
 import com.jme3.bullet.collision.shapes.HullCollisionShape;
 import com.jme3.bullet.collision.shapes.MeshCollisionShape;
 import com.jme3.bullet.collision.shapes.SphereCollisionShape;
@@ -46,6 +47,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.joml.Vector3f;
 import vhacd4.Vhacd4;
@@ -338,11 +340,15 @@ public class MeshUtils {
         int collisionVerticesIndex = 0;
         
         Vector3f vertexPosition = new Vector3f();
+        Matrix4fc identity = new Matrix4f();
         
         for (int mesh = 0; mesh < vertices.length; mesh++) {
             float[] meshVertices = vertices[mesh];
             int[] meshIndices = indices[mesh];
             Matrix4fc meshModel = models[mesh];
+            if (meshModel == null) {
+                meshModel = identity;
+            }
             
             float[] unindexedVertices = unindex(meshVertices, meshIndices, vertexSize).getA();
             
@@ -366,6 +372,25 @@ public class MeshUtils {
         collisionVertices = Arrays.copyOf(collisionVertices, collisionVerticesIndex);
         
         return generateIndices(collisionVertices, 3);
+    }
+    
+    public static GImpactCollisionShape createGImpactCollisionShapeFromMeshes(float[][] vertices, int[][] indices, Matrix4fc[] models, int vertexSize, int xyzOffset) {
+        Pair<float[], int[]> indexedCollisionVerticesPair = transformAndReindex(vertices, indices, models, vertexSize, xyzOffset);
+        
+        float[] indexedCollisionVertices = indexedCollisionVerticesPair.getA();
+        int[] indexedCollisionIndices = indexedCollisionVerticesPair.getB();
+        
+        FloatBuffer verticesBuffer = BufferUtils
+                .createFloatBuffer(indexedCollisionVertices.length)
+                .put(indexedCollisionVertices)
+                .flip()
+                ;
+        IntBuffer indicesBuffer = BufferUtils
+                .createIntBuffer(indexedCollisionIndices.length)
+                .put(indexedCollisionIndices)
+                .flip();
+        
+        return new GImpactCollisionShape(new IndexedMesh(verticesBuffer, indicesBuffer));
     }
     
     public static MeshCollisionShape createStaticCollisionShapeFromMeshes(float[][] vertices, int[][] indices, Matrix4fc[] models, int vertexSize, int xyzOffset) {

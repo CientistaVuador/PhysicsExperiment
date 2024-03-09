@@ -52,6 +52,7 @@ import cientistavuador.physicsexperiment.util.bakedlighting.SamplingMode;
 import cientistavuador.physicsexperiment.util.bakedlighting.Scene;
 import com.jme3.bullet.PhysicsSpace;
 import com.jme3.bullet.collision.shapes.CollisionShape;
+import com.jme3.bullet.collision.shapes.HullCollisionShape;
 import com.jme3.bullet.collision.shapes.MeshCollisionShape;
 import com.jme3.bullet.collision.shapes.SphereCollisionShape;
 import com.jme3.bullet.objects.PhysicsRigidBody;
@@ -236,7 +237,24 @@ public class Game {
 
     private final PlayerController player = new PlayerController();
     private boolean playerActive = false;
-
+    
+    private final HullCollisionShape stoneShape;
+    private final MeshData stoneShapeMesh;
+    
+    {
+        MeshData stone = Geometries.ASTEROID;
+        
+        this.stoneShape = MeshUtils.createHullCollisionShapeFromMeshes(
+                new float[][] {stone.getVertices()},
+                new int[][] {stone.getIndices()},
+                new Matrix4fc[] {null},
+                MeshData.SIZE,
+                MeshData.XYZ_OFFSET
+        );
+        
+        this.stoneShapeMesh = MeshUtils.createMeshFromCollisionShape("stoneShapeMesh", this.stoneShape);
+    }
+    
     private Game() {
 
     }
@@ -569,8 +587,8 @@ public class Game {
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D_ARRAY, Textures.EMPTY_LIGHTMAP);
 
-            //if (geo.getMesh().equals(Geometries.MONKEY)) {
-            //    this.monkeyCollisionMesh.bindRenderUnbind();
+            //if (geo.getMesh().equals(Geometries.ASTEROID)) {
+            //    this.stoneShapeMesh.bindRenderUnbind();
             //} else {
             geo.getMesh().bindRenderUnbind();
             //}
@@ -599,7 +617,7 @@ public class Game {
             new StringBuilder()
             .append("Escape - Lock/Unlock Mouse\n")
             .append("LMB - Push, RMB - Pull\n")
-            .append("E - Create Ball, C - Create Can, M - Create Monkey\n")
+            .append("E - Ball, C - Can, M - Monkey, T - Stone\n")
             .append("F - Player/Freecam\n")
             .append("Space - Jump\n")
             .append("G - Random Impulse\n")
@@ -826,6 +844,17 @@ public class Game {
             physicsCiencola.setUserObject(new Geometry(Geometries.CIENCOLA));
             this.physicsSpace.addCollisionObject(physicsCiencola);
             this.rigidBodies.add(physicsCiencola);
+        }
+        if (key == GLFW_KEY_T && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            PhysicsRigidBody physicsStone = new PhysicsRigidBody(this.stoneShape, 300f);
+            configureRigidBody(physicsStone);
+            physicsStone.setFriction(4f);
+            physicsStone.setRollingFriction(1f);
+            physicsStone.setSpinningFriction(1f);
+            physicsStone.setRestitution(0.0f);
+            physicsStone.setUserObject(new Geometry(Geometries.ASTEROID));
+            this.physicsSpace.addCollisionObject(physicsStone);
+            this.rigidBodies.add(physicsStone);
         }
         if (key == GLFW_KEY_G && action == GLFW_PRESS) {
             for (PhysicsRigidBody e : this.rigidBodies) {
