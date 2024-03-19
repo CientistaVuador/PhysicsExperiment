@@ -61,18 +61,7 @@ public class CharacterController implements PhysicsTickListener {
         NO_FLOORS,
         NO_OUTSIDE_OF_GROUND_THRESHOLD;
     }
-
-    private static final Field compoundBypass;
-
-    static {
-        try {
-            compoundBypass = MeshCollisionShape.class.getDeclaredField("nativeMesh");
-            compoundBypass.setAccessible(true);
-        } catch (NoSuchFieldException | SecurityException ex) {
-            throw new RuntimeException(ex);
-        }
-    }
-
+    
     public static final float EPSILON = 0.001f;
 
     public static final float TEST_BOX_HEIGHT = 0.01f;
@@ -657,16 +646,10 @@ public class CharacterController implements PhysicsTickListener {
             }
 
             if (obj.getCollisionShape() instanceof MeshCollisionShape mesh) {
-                CompoundMesh compound;
-                try {
-                    compound = (CompoundMesh) compoundBypass.get(mesh);
-                } catch (IllegalArgumentException | IllegalAccessException ex) {
-                    throw new RuntimeException(ex);
-                }
-                compound.getSubmesh(e.partIndex())
+                mesh.getSubmesh(e.partIndex())
                         .copyTriangle(e.triangleIndex(), this.filterTriangle);
                 this.filterTriangle.calculateNormal();
-
+                
                 com.jme3.math.Vector3f triangleNormal = this.filterTriangle.getNormal();
                 this.filterNormal.set(
                         triangleNormal.x,

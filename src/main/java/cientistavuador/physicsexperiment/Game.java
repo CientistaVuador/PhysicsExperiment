@@ -185,7 +185,8 @@ public class Game {
     private final List<PhysicsRigidBody> rigidBodies = new ArrayList<>();
     private final Scene.DirectionalLight sun = new Scene.DirectionalLight();
     private final SphereCollisionShape sphereShape = new SphereCollisionShape((0.35f / 2f) * Main.TO_PHYSICS_ENGINE_UNITS);
-
+    
+    private Geometry stairGeometry = null;
     private final Geometry monkeyGeometry = new Geometry(Geometries.MONKEY);
     private final MeshData monkeyCollisionMesh;
     private final CollisionShape monkeyShape;
@@ -364,7 +365,7 @@ public class Game {
                     .rotateY((float) Math.toRadians(-90f))
             );
             
-            this.scene.getGeometries().add(stair);
+            this.stairGeometry = stair;
         }
         
         this.scene.setIndirectLightingEnabled(true);
@@ -398,6 +399,10 @@ public class Game {
         meshVertices.add(this.monkeyGeometry.getMesh().getVertices());
         meshIndices.add(this.monkeyGeometry.getMesh().getIndices());
         meshModels.add(this.monkeyGeometry.getModel());
+        
+        meshVertices.add(this.stairGeometry.getMesh().getVertices());
+        meshIndices.add(this.stairGeometry.getMesh().getIndices());
+        meshModels.add(this.stairGeometry.getModel());
 
         MeshCollisionShape world = MeshUtils.createStaticCollisionShapeFromMeshes(
                 meshVertices.toArray(float[][]::new),
@@ -539,6 +544,13 @@ public class Game {
         glBindTexture(GL_TEXTURE_2D_ARRAY, Textures.EMPTY_LIGHTMAP);
         program.setModel(this.monkeyGeometry.getModel());
         this.monkeyGeometry.getMesh().bindRenderUnbind();
+        
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, this.stairGeometry.getMesh().getTextureHint());
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, Textures.EMPTY_LIGHTMAP);
+        program.setModel(this.stairGeometry.getModel());
+        this.stairGeometry.getMesh().bindRenderUnbind();
 
         if (!this.playerActive) {
             glActiveTexture(GL_TEXTURE0);
@@ -854,6 +866,8 @@ public class Game {
         if (key == GLFW_KEY_C && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
             PhysicsRigidBody physicsCiencola = new PhysicsRigidBody(this.ciencolaShape, 0.5f);
             configureRigidBody(physicsCiencola);
+            physicsCiencola.setCcdSweptSphereRadius(0.8f * 0.9f);
+            physicsCiencola.setCcdMotionThreshold(0.01f);
             physicsCiencola.setFriction(0.4f);
             physicsCiencola.setRollingFriction(0.06f);
             physicsCiencola.setSpinningFriction(0.06f);
